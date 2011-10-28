@@ -37,6 +37,7 @@ typedef PCSACounterData * PCSACounter;
 /* creates an optimal bloom filter for the given bitmap size and number of
  * bitmaps (and number of bytes to use for key) */
 PCSACounter pcsa_create(int nmaps, int keysize);
+int pcsa_get_size(int nmaps, int keysize);
 
 /* add element existence */
 void pcsa_add_element_text(PCSACounter pcsa, const char * element, int elen);

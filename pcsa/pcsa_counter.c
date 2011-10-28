@@ -249,7 +249,13 @@ pcsa_init(PG_FUNCTION_ARGS)
 Datum
 pcsa_size(PG_FUNCTION_ARGS)
 {
-    PG_RETURN_INT32(0);
+      int bitmaps;
+      int keysize;
+      
+      bitmaps = PG_GETARG_INT32(0);
+      keysize = PG_GETARG_INT32(1);
+      
+      PG_RETURN_INT32(pcsa_get_size(bitmaps, keysize));      
 }
 
 Datum

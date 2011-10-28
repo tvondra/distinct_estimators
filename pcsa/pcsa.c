@@ -43,6 +43,10 @@ PCSACounter pcsa_create(int nmaps, int keysize) {
   
 }
 
+int pcsa_get_size(int nmaps, int keysize) {
+    return sizeof(PCSACounterData) + (HASH_LENGTH - keysize) * nmaps;
+}
+
 /* searches for the leftmost 1 */
 int pcsa_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes) {
   
