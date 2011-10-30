@@ -117,4 +117,7 @@ Anyway my experiences are that:
      each article category, and later merge the estimators to get
      an estimate for a group of categories.
 
+  f) The pcsa tend to give bad results for low numbers of distinct
+     values - that's where adaptive/bitmap clearly win.
+
 See README for individual estimators for more details.
