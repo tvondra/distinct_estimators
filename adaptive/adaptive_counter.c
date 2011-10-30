@@ -18,6 +18,8 @@ PG_MODULE_MAGIC;
 #define VAL(CH)			((CH) - '0')
 #define DIG(VAL)		((VAL) + '0')
 
+#define DEFAULT_ERROR       0.025
+#define DEFAULT_NDISTINCT   1000000
 
 PG_FUNCTION_INFO_V1(adaptive_add_item_text);
 PG_FUNCTION_INFO_V1(adaptive_add_item_int);
@@ -124,13 +126,21 @@ adaptive_add_item_agg_text(PG_FUNCTION_ARGS)
     AdaptiveCounter ac;
     text * item;
     float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
-    int    itemSize; /* in bytes */
+    int    ndistinct; /* expected number of distinct values */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       errorRate = PG_GETARG_FLOAT4(2);
-      itemSize = PG_GETARG_INT32(3);
-      ac = ac_init(errorRate, itemSize);
+      ndistinct = PG_GETARG_INT32(3);
+      
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
+      }
+      
+      ac = ac_init(errorRate, ndistinct);
     } else {
       ac = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -153,13 +163,21 @@ adaptive_add_item_agg_int(PG_FUNCTION_ARGS)
     AdaptiveCounter ac;
     int item;
     float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
-    int    itemSize; /* in bytes */
+    int    ndistinct; /* expected number of distinct values */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       errorRate = PG_GETARG_FLOAT4(2);
-      itemSize = PG_GETARG_INT32(3);
-      ac = ac_init(errorRate, itemSize);
+      ndistinct = PG_GETARG_INT32(3);
+      
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
+      }
+      
+      ac = ac_init(errorRate, ndistinct);
     } else {
       ac = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -184,7 +202,7 @@ adaptive_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      ac = ac_init(0.025, 1000000);
+      ac = ac_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
     } else {
       ac = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -209,7 +227,7 @@ adaptive_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      ac = ac_init(0.025, 1000000);
+      ac = ac_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
     } else {
       ac = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -264,6 +282,13 @@ adaptive_size(PG_FUNCTION_ARGS)
     error = PG_GETARG_FLOAT4(0);
     ndistinct = PG_GETARG_INT32(1);
       
+    /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+    if (ndistinct < 1) {
+        elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+    } else if ((error <= 0) || (error > 1)) {
+        elog(ERROR, "error rate has to be between 0 and 1");
+    }
+      
     maxItems = ceil(powf(1.2/error, 2));
     
     sizeA = ceilf((logf(ndistinct / maxItems) / logf(2)) / 8) + 1;
@@ -283,12 +308,19 @@ adaptive_init(PG_FUNCTION_ARGS)
 {
       AdaptiveCounter ac;
       float errorRate;
-      int itemSize;
+      int ndistinct;
       
       errorRate = PG_GETARG_FLOAT4(0);
-      itemSize = PG_GETARG_INT32(1);
+      ndistinct = PG_GETARG_INT32(1);
       
-      ac = ac_init(errorRate, itemSize);
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
+      }
+      
+      ac = ac_init(errorRate, ndistinct);
       
       PG_RETURN_BYTEA_P(ac);
 }

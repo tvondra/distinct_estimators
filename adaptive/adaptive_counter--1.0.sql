@@ -41,7 +41,7 @@ CREATE FUNCTION adaptive_get_item_size(counter adaptive_estimator) RETURNS int
 -- reset the estimator (start counting from the beginning)
 CREATE FUNCTION adaptive_reset(counter adaptive_estimator) RETURNS void
      AS 'MODULE_PATHNAME', 'adaptive_reset'
-     LANGUAGE C;
+     LANGUAGE C STRICT;
 
 -- length of the estimator (about the same as adaptive_size with existing estimator)
 CREATE FUNCTION length(counter adaptive_estimator) RETURNS int
