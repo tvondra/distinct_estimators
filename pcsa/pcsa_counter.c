@@ -18,6 +18,9 @@ PG_MODULE_MAGIC;
 #define VAL(CH)         ((CH) - '0')
 #define DIG(VAL)        ((VAL) + '0')
 
+#define DEFAULT_NBITMAPS    64
+#define DEFAULT_KEYSIZE     4
+
 PG_FUNCTION_INFO_V1(pcsa_add_item_text);
 PG_FUNCTION_INFO_V1(pcsa_add_item_int);
 
@@ -175,7 +178,7 @@ pcsa_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      pcsa = pcsa_create(64, 4);
+      pcsa = pcsa_create(DEFAULT_NBITMAPS, DEFAULT_KEYSIZE);
     } else {
       pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
     }
@@ -200,7 +203,7 @@ pcsa_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      pcsa = pcsa_create(64, 4);
+      pcsa = pcsa_create(DEFAULT_NBITMAPS, DEFAULT_KEYSIZE);
     } else {
       pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
     }
