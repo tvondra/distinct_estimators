@@ -180,7 +180,7 @@ bitmap_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bc = bc_init(0.025, 3);
+      bc = bc_init(0.025, 1000000);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -205,7 +205,7 @@ bitmap_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bc = bc_init(0.025, 3);
+      bc = bc_init(0.025, 1000000);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
