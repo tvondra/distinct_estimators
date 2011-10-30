@@ -18,6 +18,8 @@ PG_MODULE_MAGIC;
 #define VAL(CH)			((CH) - '0')
 #define DIG(VAL)		((VAL) + '0')
 
+#define DEFAULT_ERROR       0.025
+#define DEFAULT_NDISTINCT   1000000
 
 PG_FUNCTION_INFO_V1(bitmap_add_item_text);
 PG_FUNCTION_INFO_V1(bitmap_add_item_int);
@@ -120,13 +122,22 @@ bitmap_add_item_agg_text(PG_FUNCTION_ARGS)
     BitmapCounter bc;
     text * item;
     float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
-    int    itemSize; /* in bytes */
+    int    ndistinct; /* expected number of distinct values */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
+        
       errorRate = PG_GETARG_FLOAT4(2);
-      itemSize = PG_GETARG_INT32(3);
-      bc = bc_init(errorRate, itemSize);
+      ndistinct = PG_GETARG_INT32(3);
+      
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
+      }
+      
+      bc = bc_init(errorRate, ndistinct);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -149,13 +160,21 @@ bitmap_add_item_agg_int(PG_FUNCTION_ARGS)
     BitmapCounter bc;
     int item;
     float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
-    int    itemSize; /* in bytes */
+    int    ndistinct; /* expected number of distinct values */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       errorRate = PG_GETARG_FLOAT4(2);
-      itemSize = PG_GETARG_INT32(3);
-      bc = bc_init(errorRate, itemSize);
+      ndistinct = PG_GETARG_INT32(3);
+      
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
+      }
+      
+      bc = bc_init(errorRate, ndistinct);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -180,7 +199,7 @@ bitmap_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bc = bc_init(0.025, 1000000);
+      bc = bc_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -205,7 +224,7 @@ bitmap_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bc = bc_init(0.025, 1000000);
+      bc = bc_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
     } else {
       bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -252,35 +271,56 @@ bitmap_size(PG_FUNCTION_ARGS)
 {
 
     float error;
-    int itemSize;
-    int maxItems;
-    int size;
-      
+    int ndistinct;
+    float m;
+    int bits, nbits, bitmapSize;
+    
     error = PG_GETARG_FLOAT4(0);
-    itemSize = PG_GETARG_INT32(1);
-      
-    maxItems = ceil(powf(1.2/error, 2));
-  
-    /* store the length too (including the length field) */
-    size = sizeof(BitmapCounterData) + (itemSize * maxItems) - VARHDRSZ;
+    ndistinct = PG_GETARG_INT32(1);
+    
+    /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+    if (ndistinct < 1) {
+        elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+    } else if ((error <= 0) || (error > 1)) {
+        elog(ERROR, "error rate has to be between 0 and 1");
+    }
 
-    PG_RETURN_INT32(size);
+    /* compute the number of bits (see the paper "distinct counting with self-learning bitmap" page 3) */
+    m = log(1 + 2*ndistinct*powf(error,2)) / log(1 + 2*powf(error,2)/(1 - powf(error,2)));
+
+    /* how many bits do we need for index (size of the 'c') */
+    bits = ceil(log(m)/log(2));
+    
+    /* size of the bitmap */
+    nbits = (0x1 << bits);
+
+    /* size of the bitmap (in bytes) */
+    bitmapSize = nbits/sizeof(char);
+    
+    PG_RETURN_INT32(sizeof(BitmapCounterData) + bitmapSize - 1);
 
 }
 
 Datum
 bitmap_init(PG_FUNCTION_ARGS)
 {
-      BitmapCounter bc;
-      float errorRate;
-      int itemSize;
+    BitmapCounter bc;
+    float errorRate;
+    int ndistinct;
       
-      errorRate = PG_GETARG_FLOAT4(0);
-      itemSize = PG_GETARG_INT32(1);
+    errorRate = PG_GETARG_FLOAT4(0);
+    ndistinct = PG_GETARG_INT32(1);
+    
+    /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+    if (ndistinct < 1) {
+        elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+    } else if ((errorRate <= 0) || (errorRate > 1)) {
+        elog(ERROR, "error rate has to be between 0 and 1");
+    }
       
-      bc = bc_init(errorRate, itemSize);
+    bc = bc_init(errorRate, ndistinct);
       
-      PG_RETURN_BYTEA_P(bc);
+    PG_RETURN_BYTEA_P(bc);
 }
 
 Datum

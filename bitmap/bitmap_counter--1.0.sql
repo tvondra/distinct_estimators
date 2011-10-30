@@ -41,7 +41,7 @@ CREATE FUNCTION bitmap_get_ndistinct(counter bitmap_estimator) RETURNS int
 -- reset the estimator (start counting from the beginning)
 CREATE FUNCTION bitmap_reset(counter bitmap_estimator) RETURNS void
      AS 'MODULE_PATHNAME', 'bitmap_reset'
-     LANGUAGE C;
+     LANGUAGE C STRICT;
 
 -- length of the estimator (about the same as adaptive_size with existing estimator)
 CREATE FUNCTION length(counter bitmap_estimator) RETURNS int
