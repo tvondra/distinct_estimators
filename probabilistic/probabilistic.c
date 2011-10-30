@@ -114,7 +114,7 @@ void pc_hash_text(unsigned char * buffer, char salt, const char * element, int e
     unsigned char item[elen + 1];
     
     memcpy(item, &salt, 1);
-    memcpy(item, element, elen);
+    memcpy(item+1, element, elen);
   
     pg_md5_binary(item, elen + 1, buffer);
 
@@ -125,7 +125,7 @@ void pc_hash_int(unsigned char * buffer, char salt, int element) {
     unsigned char item[5];
     
     memcpy(item, &salt, 1);
-    memcpy(item, &element, 4);
+    memcpy(item+1, &element, 4);
   
     pg_md5_binary(item, 5, buffer);
 
