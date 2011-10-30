@@ -1,74 +1,78 @@
 -- BITMAP SAMPLING ESTIMATOR
 
--- shell type
+-- bitmap estimator (shell type)
 CREATE TYPE bitmap_estimator;
 
--- get estimator size for the requested error rate / item size
-CREATE FUNCTION bitmap_size(real, int) RETURNS int
+-- get estimator size for the requested error rate / number of distinct items
+CREATE FUNCTION bitmap_size(errorRate real, ndistinct int) RETURNS int
      AS 'MODULE_PATHNAME', 'bitmap_size'
      LANGUAGE C;
 
--- creates a new bitmap estimator with a given error / item size
-CREATE FUNCTION bitmap_init(real, int) RETURNS bitmap_estimator
+-- creates a new bitmap estimator with a given error / number of distinct items
+CREATE FUNCTION bitmap_init(errorRate real, ndistinct int) RETURNS bitmap_estimator
      AS 'MODULE_PATHNAME', 'bitmap_init'
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION bitmap_add_item(bitmap_estimator, text) RETURNS void
+CREATE FUNCTION bitmap_add_item(counter bitmap_estimator, item text) RETURNS void
      AS 'MODULE_PATHNAME', 'bitmap_add_item_text'
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION bitmap_add_item(bitmap_estimator, int) RETURNS void
+CREATE FUNCTION bitmap_add_item(counter bitmap_estimator, item int) RETURNS void
      AS 'MODULE_PATHNAME', 'bitmap_add_item_int'
      LANGUAGE C;
 
-CREATE FUNCTION bitmap_add_item_agg(bitmap_estimator, text, real, integer) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg_text'
-     LANGUAGE C;
-
-CREATE FUNCTION bitmap_add_item_agg(bitmap_estimator, int, real, integer) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION bitmap_add_item_agg2(bitmap_estimator, text) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION bitmap_add_item_agg2(bitmap_estimator, int) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg2_int'
-     LANGUAGE C;
-
 -- get current estimate of the distinct values (as a real number)
-CREATE FUNCTION bitmap_get_estimate(bitmap_estimator) RETURNS real
+CREATE FUNCTION bitmap_get_estimate(counter bitmap_estimator) RETURNS real
      AS 'MODULE_PATHNAME', 'bitmap_get_estimate'
      LANGUAGE C STRICT;
 
 -- get error rate used when creating the estimator (as a real number)
-CREATE FUNCTION bitmap_get_error(bitmap_estimator) RETURNS real
+CREATE FUNCTION bitmap_get_error(counter bitmap_estimator) RETURNS real
      AS 'MODULE_PATHNAME', 'bitmap_get_error'
      LANGUAGE C STRICT;
 
 -- get expected number of distinct values used when creating the estimator (int)
-CREATE FUNCTION bitmap_get_ndistinct(bitmap_estimator) RETURNS int
+CREATE FUNCTION bitmap_get_ndistinct(counter bitmap_estimator) RETURNS int
      AS 'MODULE_PATHNAME', 'bitmap_get_ndistinct'
      LANGUAGE C STRICT;
 
 -- reset the estimator (start counting from the beginning)
-CREATE FUNCTION bitmap_reset(bitmap_estimator) RETURNS void
+CREATE FUNCTION bitmap_reset(counter bitmap_estimator) RETURNS void
      AS 'MODULE_PATHNAME', 'bitmap_reset'
      LANGUAGE C;
 
--- reset the estimator (start counting from the beginning)
-CREATE FUNCTION length(bitmap_estimator) RETURNS int
+-- length of the estimator (about the same as adaptive_size with existing estimator)
+CREATE FUNCTION length(counter bitmap_estimator) RETURNS int
      AS 'MODULE_PATHNAME', 'bitmap_length'
      LANGUAGE C STRICT;
 
-CREATE FUNCTION bitmap_in(cstring) RETURNS bitmap_estimator
+/* function for aggregate functions */
+
+CREATE FUNCTION bitmap_add_item_agg(counter bitmap_estimator, item text, errorRate real, ndistinct integer) RETURNS bitmap_estimator
+     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg_text'
+     LANGUAGE C;
+
+CREATE FUNCTION bitmap_add_item_agg(counter bitmap_estimator, item int, errorRate real, ndistinct integer) RETURNS bitmap_estimator
+     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg_int'
+     LANGUAGE C;
+
+CREATE FUNCTION bitmap_add_item_agg2(counter bitmap_estimator, item text) RETURNS bitmap_estimator
+     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg2_text'
+     LANGUAGE C;
+
+CREATE FUNCTION bitmap_add_item_agg2(counter bitmap_estimator, item int) RETURNS bitmap_estimator
+     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg2_int'
+     LANGUAGE C;
+
+/* input/output function */
+
+CREATE FUNCTION bitmap_in(value cstring) RETURNS bitmap_estimator
      AS 'MODULE_PATHNAME', 'bitmap_in'
      LANGUAGE C STRICT;
 
-CREATE FUNCTION bitmap_out(bitmap_estimator) RETURNS cstring
+CREATE FUNCTION bitmap_out(counter bitmap_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'bitmap_out'
      LANGUAGE C STRICT;
 
@@ -80,7 +84,7 @@ CREATE TYPE bitmap_estimator (
 );
 
 -- s-bitmap based aggregate
--- items / error rate / number of items
+-- items / error rate / number of distinct items
 CREATE AGGREGATE bitmap_distinct(text, real, int)
 (
     sfunc = bitmap_add_item_agg,
