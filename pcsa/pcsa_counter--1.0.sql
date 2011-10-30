@@ -32,7 +32,7 @@ CREATE FUNCTION pcsa_get_estimate(counter pcsa_estimator) RETURNS real
 -- reset the estimator (start counting from the beginning)
 CREATE FUNCTION pcsa_reset(counter pcsa_estimator) RETURNS void
      AS 'MODULE_PATHNAME', 'pcsa_reset'
-     LANGUAGE C;
+     LANGUAGE C STRICT;
 
 -- length of the estimator (about the same as pcsa_size with existing estimator)
 CREATE FUNCTION length(counter pcsa_estimator) RETURNS int
