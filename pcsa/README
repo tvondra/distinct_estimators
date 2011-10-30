@@ -21,6 +21,7 @@ The extension provides the following elements
     - pcsa_add_item(counter pcsa_estimator, item int)
 
     - pcsa_get_estimate(counter pcsa_estimator)
+    - pcsa_reset(counter pcsa_estimator)
 
     - length(counter pcsa_estimator)
 
