@@ -258,12 +258,18 @@ adaptive_size(PG_FUNCTION_ARGS)
     float error;
     int itemSize;
     int maxItems;
-    int size;
+    int ndistinct;
+    int size, sizeA, sizeB;
       
     error = PG_GETARG_FLOAT4(0);
-    itemSize = PG_GETARG_INT32(1);
+    ndistinct = PG_GETARG_INT32(1);
       
     maxItems = ceil(powf(1.2/error, 2));
+    
+    sizeA = ceilf((logf(ndistinct / maxItems) / logf(2)) / 8) + 1;
+    sizeB = ceilf(logf(ndistinct) / logf(256)) + 1;
+    
+    itemSize = (sizeA > sizeB) ? sizeA : sizeB;
   
     /* store the length too (including the length field) */
     size = sizeof(AdaptiveCounterData) + (itemSize * maxItems) - VARHDRSZ;
