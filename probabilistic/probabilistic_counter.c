@@ -18,6 +18,11 @@ PG_MODULE_MAGIC;
 #define VAL(CH)         ((CH) - '0')
 #define DIG(VAL)        ((VAL) + '0')
 
+#define DEFAULT_NBYTES  4
+#define DEFAULT_NSALTS  32
+#define MAX_NBYTES      16
+#define MAX_NSALTS      1024
+
 PG_FUNCTION_INFO_V1(probabilistic_add_item_text);
 PG_FUNCTION_INFO_V1(probabilistic_add_item_int);
 
@@ -75,7 +80,7 @@ probabilistic_add_item_text(PG_FUNCTION_ARGS)
       pc_add_element_text(pc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
       
     } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "s-bitmap counter must not be NULL");
+        elog(ERROR, "probabilistic counter must not be NULL");
     }
     
     PG_RETURN_VOID();
@@ -101,7 +106,7 @@ probabilistic_add_item_int(PG_FUNCTION_ARGS)
         pc_add_element_int(pc, item);
       
     } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "s-bitmap counter must not be NULL");
+        elog(ERROR, "probabilistic counter must not be NULL");
     }
     
     PG_RETURN_VOID();
@@ -114,14 +119,22 @@ probabilistic_add_item_agg_text(PG_FUNCTION_ARGS)
 	
     ProbabilisticCounter pc;
     text * item;
-    int  bitmaps; /* number of bitmaps */
-    int  keysize; /* keysize */
+    int  nbytes; /* number of bytes per salt */
+    int  nsalts; /* number of salts */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
-      pc = pc_create(bitmaps, keysize);
+      nbytes = PG_GETARG_INT32(2);
+      nsalts = PG_GETARG_INT32(3);
+      
+      /* nbytes and nsalts have to be positive */
+      if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
+          elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
+      } else if (nsalts < 1) {
+          elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
+      }
+      
+      pc = pc_create(nbytes, nsalts);
     } else {
       pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -143,14 +156,22 @@ probabilistic_add_item_agg_int(PG_FUNCTION_ARGS)
     
     ProbabilisticCounter pc;
     int item;
-    int  bitmaps; /* number of bitmaps */
-    int  keysize; /* keysize */
+    int  nbytes; /* number of bytes per salt */
+    int  nsalts; /* number of salts */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
-      pc = pc_create(bitmaps, keysize);
+      nbytes = PG_GETARG_INT32(2);
+      nsalts = PG_GETARG_INT32(3);
+      
+      /* nbytes and nsalts have to be positive */
+      if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
+          elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
+      } else if (nsalts < 1) {
+          elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
+      }
+      
+      pc = pc_create(nbytes, nsalts);
     } else {
       pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -175,7 +196,7 @@ probabilistic_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      pc = pc_create(64, 4);
+      pc = pc_create(DEFAULT_NBYTES, DEFAULT_NSALTS);
     } else {
       pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -200,7 +221,7 @@ probabilistic_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      pc = pc_create(64, 4);
+      pc = pc_create(DEFAULT_NBYTES, DEFAULT_NSALTS);
     } else {
       pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -235,13 +256,20 @@ Datum
 probabilistic_init(PG_FUNCTION_ARGS)
 {
       ProbabilisticCounter pc;
-      int bitmaps;
-      int keysize;
+      int nbytes;
+      int nsalts;
       
-      bitmaps = PG_GETARG_INT32(0);
-      keysize = PG_GETARG_INT32(1);
+      nbytes = PG_GETARG_INT32(0);
+      nsalts = PG_GETARG_INT32(1);
       
-      pc = pc_create(bitmaps, keysize);
+      /* nbytes and nsalts have to be positive */
+      if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
+          elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
+      } else if (nsalts < 1) {
+          elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
+      }
+      
+      pc = pc_create(nbytes, nsalts);
       
       PG_RETURN_BYTEA_P(pc);
 }

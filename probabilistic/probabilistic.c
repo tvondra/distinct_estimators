@@ -1,3 +1,21 @@
+/* The paper defines the algorithm using "maps", i.e. a set of bitmaps with length
+ * defined based on expected number of distinct values (4B means 2^32 values etc.)
+ * which should be enough in most cases. And to update the N bitmaps they compute
+ * N hashes using N salts, where the hash function produces results of the same
+ * length as the bitmap (i.e. if the bitmaps are 4B long each, the hash returns
+ * values between 1 and 2^32 etc.).
+ * 
+ * But we're using md5, and that always produces 16B result - it's be a waste of
+ * CPU to use just the first 4B of output and throw away the rest of the hash. So
+ * we're going to define the algorithm a bit differently - we'll use the whole
+ * hash, but we'll split it into parts (of the defined length) and use each 
+ * part as a separate hash. So for example by using 4B bitmaps, each MD5 hash
+ * gives us 4 hashes.
+ * 
+ * So by using 4B bitmaps and 16 salts, we're effectively using 64 bitmaps
+ * (because 16/4 * 16 = 64).
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -19,17 +37,25 @@ int pc_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
 void pc_hash_text(unsigned char * buffer, char salt, const char * element, int elen);
 void pc_hash_int(unsigned char * buffer, char salt, int element);
 
-/* allocate bitmap with a given length (to store the given number of elements) */
+/* Allocate bitmap with a given length (to store the given number of elements).
+ * 
+ * nbytes - bytes per bitmap (to effectively use the hash, use powers of 2)
+ *          4 is a good starting point in most cases (quite precise etc.)
+ * nsalts - number of MD5 hashes to compute
+ * 
+ * To compute the actual number of bitmaps (the original paper states that
+ * 64 bitmaps, each 4B long, mean about 10% error), do this:
+ * 
+ *    floor(16/nbytes) * nsalts
+ * 
+ * Generally using nbytes=4 and nsalts=32 is a good starting point.
+ */
 ProbabilisticCounter pc_create(int nbytes, int nsalts) {
-    
-    int i;
   
     /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
     ProbabilisticCounter p = (ProbabilisticCounter)palloc(sizeof(ProbabilisticCounterData) + nsalts * HASH_LENGTH - 1);
     
-    for (i = 0; i < nsalts * HASH_LENGTH; i++) {
-        p->bitmap[i] = 0;
-    }
+    memset(p->bitmap, 0, nsalts * HASH_LENGTH);
     
     SET_VARSIZE(p, sizeof(ProbabilisticCounterData) + nsalts * HASH_LENGTH - VARHDRSZ);
     
