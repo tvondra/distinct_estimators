@@ -21,6 +21,9 @@ PG_MODULE_MAGIC;
 #define DEFAULT_NBITMAPS    64
 #define DEFAULT_KEYSIZE     4
 
+#define MAX_KEYSIZE         4
+#define MAX_BITMAPS         2048
+
 PG_FUNCTION_INFO_V1(pcsa_add_item_text);
 PG_FUNCTION_INFO_V1(pcsa_add_item_int);
 
@@ -124,6 +127,11 @@ pcsa_add_item_agg_text(PG_FUNCTION_ARGS)
     if (PG_ARGISNULL(0)) {
       bitmaps = PG_GETARG_INT32(2);
       keysize = PG_GETARG_INT32(3);
+      
+      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
+      keysize = (keysize < 1) ? 1 : ((keysize > MAX_KEYSIZE) ? MAX_KEYSIZE : keysize);
+      bitmaps = (bitmaps < 1) ? 1 : ((bitmaps > MAX_BITMAPS) ? MAX_BITMAPS : bitmaps);
+
       pcsa = pcsa_create(bitmaps, keysize);
     } else {
       pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
@@ -153,6 +161,11 @@ pcsa_add_item_agg_int(PG_FUNCTION_ARGS)
     if (PG_ARGISNULL(0)) {
       bitmaps = PG_GETARG_INT32(2);
       keysize = PG_GETARG_INT32(3);
+      
+      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
+      keysize = (keysize < 1) ? 1 : ((keysize > MAX_KEYSIZE) ? MAX_KEYSIZE : keysize);
+      bitmaps = (bitmaps < 1) ? 1 : ((bitmaps > MAX_BITMAPS) ? MAX_BITMAPS : bitmaps);
+      
       pcsa = pcsa_create(bitmaps, keysize);
     } else {
       pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
@@ -244,6 +257,10 @@ pcsa_init(PG_FUNCTION_ARGS)
       bitmaps = PG_GETARG_INT32(0);
       keysize = PG_GETARG_INT32(1);
       
+      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
+      keysize = (keysize < 1) ? 1 : ((keysize > MAX_KEYSIZE) ? MAX_KEYSIZE : keysize);
+      bitmaps = (bitmaps < 1) ? 1 : ((bitmaps > MAX_BITMAPS) ? MAX_BITMAPS : bitmaps);
+      
       pcsa = pcsa_create(bitmaps, keysize);
       
       PG_RETURN_BYTEA_P(pcsa);
@@ -257,6 +274,10 @@ pcsa_size(PG_FUNCTION_ARGS)
       
       bitmaps = PG_GETARG_INT32(0);
       keysize = PG_GETARG_INT32(1);
+      
+      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
+      keysize = (keysize < 1) ? 1 : ((keysize > MAX_KEYSIZE) ? MAX_KEYSIZE : keysize);
+      bitmaps = (bitmaps < 1) ? 1 : ((bitmaps > MAX_BITMAPS) ? MAX_BITMAPS : bitmaps);
       
       PG_RETURN_INT32(pcsa_get_size(bitmaps, keysize));      
 }
