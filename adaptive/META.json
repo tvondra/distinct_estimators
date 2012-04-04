@@ -21,7 +21,7 @@
    },
    "resources": {
       "repository": {
-        "url":  "https://https://tvondra@github.com/tvondra/distinct_estimators.git",
+        "url":  "https://tvondra@github.com/tvondra/distinct_estimators.git",
         "web":  "http://github.com/tvondra/distinct_estimators",
         "type": "git"
       },
