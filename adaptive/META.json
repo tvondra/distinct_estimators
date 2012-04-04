@@ -14,7 +14,7 @@
    },
    "provides": {
      "adaptive_estimator": {
-       "file": "adaptive_counter--1.0.sql",
+       "file": "sql/adaptive_counter--1.0.sql",
        "docfile" : "README.md",
        "version": "1.0.0"
      }

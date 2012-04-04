@@ -14,7 +14,7 @@
    },
    "provides": {
      "probabilistic_estimator": {
-       "file": "probabilistic_counter--1.0.sql",
+       "file": "sql/probabilistic_counter--1.0.sql",
        "docfile" : "README.md",
        "version": "1.0.0"
      }

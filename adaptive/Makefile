@@ -1,8 +1,8 @@
 MODULE_big = adaptive_counter
-OBJS = adaptive_counter.o adaptive.o
+OBJS = src/adaptive_counter.o src/adaptive.o
 
 EXTENSION = adaptive_counter
-DATA = adaptive_counter--1.0.sql
+DATA = sql/adaptive_counter--1.0.sql
 MODULES = adaptive_counter
 
 PG_CONFIG = pg_config
@@ -11,8 +11,6 @@ include $(PGXS)
 
 all: adaptive_counter.so
 
-adaptive_counter.so: adaptive.o adaptive_counter.o
+adaptive_counter.so: $(OBJS)
 
-adaptive.o: adaptive.c
-
-adaptive_counter.o: adaptive_counter.c
+%.o : src/%.c

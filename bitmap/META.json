@@ -14,7 +14,7 @@
    },
    "provides": {
      "pcsa_estimator": {
-       "file": "bitmap_estimator--1.0.sql",
+       "file": "sql/bitmap_estimator--1.0.sql",
        "docfile" : "README.md",
        "version": "1.0.0"
      }

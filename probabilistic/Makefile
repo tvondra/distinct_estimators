@@ -1,8 +1,8 @@
 MODULE_big = probabilistic_counter
-OBJS = probabilistic_counter.o probabilistic.o
+OBJS = src/probabilistic_counter.o src/probabilistic.o
 
 EXTENSION = probabilistic_counter
-DATA = probabilistic_counter--1.0.sql
+DATA = sql/probabilistic_counter--1.0.sql
 MODULES = probabilistic_counter
 
 PG_CONFIG = pg_config
@@ -11,8 +11,6 @@ include $(PGXS)
 
 all: probabilistic_counter.so
 
-probabilistic_counter.so: probabilistic.o probabilistic_counter.o
+probabilistic_counter.so: $(OBJS)
 
-probabilistic.o: probabilistic.c
-
-probabilistic_counter.o: probabilistic_counter.c
+%.o : src/%.c
