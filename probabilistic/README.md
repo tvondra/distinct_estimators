@@ -12,7 +12,7 @@ The extension provides the following elements
 
 * probabilistic_estimator data type (may be used for columns, in PL/pgSQL)
 
-* functions to work with the pcsa_estimator data type
+* functions to work with the probabilistic_estimator data type
 
     * `probabilistic_size(nbytes int, nsalts int)`
     * `probabilistic_init(nbytes int, nsalts int)`
@@ -55,7 +55,7 @@ and you can use it from a PL/pgSQL (or another PL) like this:
 
     DO LANGUAGE plpgsql $$
     DECLARE
-        v_counter probabilistic_estimator := pcsa_init(4, 32);
+        v_counter probabilistic_estimator := probabilistic_init(4, 32);
         v_estimate real;
     BEGIN
         PERFORM probabilistic_add_item(v_counter, 1);
