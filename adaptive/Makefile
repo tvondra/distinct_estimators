@@ -5,6 +5,10 @@ EXTENSION = adaptive_counter
 DATA = sql/adaptive_counter--1.0.sql
 MODULES = adaptive_counter
 
+TESTS        = $(wildcard test/sql/*.sql)
+REGRESS      = $(patsubst test/sql/%.sql,%,$(TESTS))
+REGRESS_OPTS = --inputdir=test
+
 PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
