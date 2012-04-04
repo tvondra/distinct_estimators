@@ -12,8 +12,8 @@ The extension provides the following elements
 
 * functions to work with the adaptive_estimator data type
 
-    * `adaptive_size(error real, item_size int)`
-    * `adaptive_init(error real, item_size int)`
+    * `adaptive_size(error real, ndistinct int)`
+    * `adaptive_init(error real, ndistinct int)`
 
     * `adaptive_add_item(adaptive_estimator counter, item text)`
     * `adaptive_add_item(adaptive_estimator counter, item int)`
