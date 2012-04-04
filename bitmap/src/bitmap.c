@@ -72,7 +72,7 @@ BitmapCounter bc_init(float error, int ndistinct) {
 
 /* Computes an MD5 hash of the input value (with a given length). */
 void bc_hash_text(unsigned char * buffer, const char * element, int length) {
-    pg_md5_binary(&element, length, buffer);
+    pg_md5_binary(element, length, buffer);
 }
 
 /* Computes an MD5 hash of the input value (with a given length). */
