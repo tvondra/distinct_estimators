@@ -344,7 +344,7 @@ Datum
 adaptive_get_item_size(PG_FUNCTION_ARGS)
 {
     /* return the error rate of the counter */
-    PG_RETURN_FLOAT4(((AdaptiveCounter)PG_GETARG_BYTEA_P(0))->itemSize);
+    PG_RETURN_INT32(((AdaptiveCounter)PG_GETARG_BYTEA_P(0))->itemSize);
 }
 
 Datum
