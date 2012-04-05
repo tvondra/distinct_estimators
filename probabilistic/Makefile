@@ -2,7 +2,7 @@ MODULE_big = probabilistic_counter
 OBJS = src/probabilistic_counter.o src/probabilistic.o
 
 EXTENSION = probabilistic_counter
-DATA = sql/probabilistic_counter--1.0.sql
+DATA = sql/probabilistic_counter--1.1.sql
 MODULES = probabilistic_counter
 
 TESTS        = $(wildcard test/sql/*.sql)
