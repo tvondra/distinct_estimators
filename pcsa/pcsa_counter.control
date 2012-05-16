@@ -1,6 +1,6 @@
 # PCSA estimator control
 comment = 'Aggregation functions and data type for distinct estimation based on PCSA.'
-default_version = '1.0'
+default_version = '1.1'
 relocatable = true
 
 module_pathname = '$libdir/pcsa_counter'

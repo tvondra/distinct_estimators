@@ -1,6 +1,6 @@
 # s-bitmap estimator control
 comment = 'Aggregation functions and data type for distinct estimation based on s-bitmap.'
-default_version = '1.0'
+default_version = '1.1'
 relocatable = true
 
 module_pathname = '$libdir/bitmap_counter'
