@@ -21,9 +21,6 @@ PG_MODULE_MAGIC;
 #define DEFAULT_ERROR       0.025
 #define DEFAULT_NDISTINCT   1000000
 
-#define MAX_KEYSIZE         4
-#define MAX_BITMAPS         2048
-
 PG_FUNCTION_INFO_V1(loglog_add_item_text);
 PG_FUNCTION_INFO_V1(loglog_add_item_int);
 
@@ -121,22 +118,22 @@ loglog_add_item_agg_text(PG_FUNCTION_ARGS)
 	
     LogLogCounter loglog;
     text * item;
-    int  bitmaps; /* number of bitmaps */
-    int  keysize; /* keysize */
+    float errorRate; /* required error rate */
+    int   ndistinct; /* expected distinct count */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
+      errorRate = PG_GETARG_FLOAT4(2);
+      ndistinct = PG_GETARG_INT32(3);
       
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(bitmaps, keysize);
+      loglog = loglog_create(errorRate, ndistinct);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -158,22 +155,22 @@ loglog_add_item_agg_int(PG_FUNCTION_ARGS)
     
     LogLogCounter loglog;
     int item;
-    int  bitmaps; /* number of bitmaps */
-    int  keysize; /* keysize */
+    float errorRate; /* required error rate */
+    int   ndistinct; /* expected distinct count */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
+      errorRate = PG_GETARG_FLOAT4(2);
+      ndistinct = PG_GETARG_INT32(3);
       
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(bitmaps, keysize);
+      loglog = loglog_create(errorRate, ndistinct);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -258,41 +255,43 @@ Datum
 loglog_init(PG_FUNCTION_ARGS)
 {
       LogLogCounter loglog;
-      int bitmaps;
-      int keysize;
+
+      float errorRate; /* required error rate */
+      int   ndistinct; /* expected distinct count */
+  
+      errorRate = PG_GETARG_FLOAT4(0);
+      ndistinct = PG_GETARG_INT32(1);
       
-      bitmaps = PG_GETARG_INT32(0);
-      keysize = PG_GETARG_INT32(1);
-            
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(bitmaps, keysize);
-      
+      loglog = loglog_create(errorRate, ndistinct);
+
       PG_RETURN_BYTEA_P(loglog);
 }
 
 Datum
 loglog_size(PG_FUNCTION_ARGS)
 {
-      int bitmaps;
-      int keysize;
+
+      float errorRate; /* required error rate */
+      int   ndistinct; /* expected distinct count */
+  
+      errorRate = PG_GETARG_FLOAT4(0);
+      ndistinct = PG_GETARG_INT32(1);
       
-      bitmaps = PG_GETARG_INT32(0);
-      keysize = PG_GETARG_INT32(1);
-      
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
+      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+      if (ndistinct < 1) {
+          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+      } else if ((errorRate <= 0) || (errorRate > 1)) {
+          elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      PG_RETURN_INT32(loglog_get_size(bitmaps, keysize));      
+      PG_RETURN_INT32(loglog_get_size(errorRate, ndistinct));      
 }
 
 Datum

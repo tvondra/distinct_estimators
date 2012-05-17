@@ -29,8 +29,10 @@ LogLogCounter loglog_create(float error, int ndistinct) {
   /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
   LogLogCounter p = (LogLogCounter)palloc(size);
   
-  p->k = (int)ceil(log2(1.0 / (error * error)));
+  p->nmaps = 1.3 / (error * error);
+  p->k = (int)ceil(log2(p->nmaps));
   p->nmaps = (int)pow(2, p->k);
+  
   p->keysize = (p->k+7)/8; // FIXME not more than 4B (see loglog_add_hash)
   p->mapsize = 1; // FIXME compute properly (int)ceil(log2(log2(ndistinct))/8);
   
@@ -44,9 +46,12 @@ LogLogCounter loglog_create(float error, int ndistinct) {
 
 int loglog_get_size(float error, int ndistinct) {
 
-  int k = (int)ceil(log2(1.0 / (error* error)));
-  int nmaps = (int)pow(2, k);
   int mapsize = 1;
+  int nmaps = 1.3 / (error * error);
+  int k = (int)ceil(log2(nmaps));
+  
+  nmaps = (int)pow(2, k);
+
   // FIXME int mapsize = (int)ceil(log2(log2(ndistinct))/8);
 
   return sizeof(LogLogCounterData) + nmaps * mapsize;

@@ -10,7 +10,7 @@ CREATE FUNCTION loglog_size(nbitmaps int, keysize int) RETURNS int
 
 -- creates a new LogLog estimator with a given number of bitmaps / key size
 -- an estimator with 32 bitmaps and keysize 3 usually gives reasonable results
-CREATE FUNCTION loglog_init(nbitmaps int, keysize int) RETURNS loglog_estimator
+CREATE FUNCTION loglog_init(errorRate real, ndistinct int) RETURNS loglog_estimator
      AS 'MODULE_PATHNAME', 'loglog_init'
      LANGUAGE C;
 
