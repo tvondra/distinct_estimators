@@ -1,16 +1,15 @@
--- LogLog SAMPLING ESTIMATOR
+-- LogLog 
 
 -- LogLog counter (shell type)
 CREATE TYPE loglog_estimator;
 
--- get estimator size for the requested number of bitmaps / key size
-CREATE FUNCTION loglog_size(nbitmaps int, keysize int) RETURNS int
+-- get estimator size for the requested error rate
+CREATE FUNCTION loglog_size(errorRate real) RETURNS int
      AS 'MODULE_PATHNAME', 'loglog_size'
      LANGUAGE C;
 
--- creates a new LogLog estimator with a given number of bitmaps / key size
--- an estimator with 32 bitmaps and keysize 3 usually gives reasonable results
-CREATE FUNCTION loglog_init(errorRate real, ndistinct int) RETURNS loglog_estimator
+-- creates a new LogLog estimator with a given a desired error rate limit
+CREATE FUNCTION loglog_init(errorRate real) RETURNS loglog_estimator
      AS 'MODULE_PATHNAME', 'loglog_init'
      LANGUAGE C;
 
@@ -41,11 +40,11 @@ CREATE FUNCTION length(counter loglog_estimator) RETURNS int
 
 /* functions for aggregate functions */
 
-CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item text, errorRate real, ndistinct int) RETURNS loglog_estimator
+CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item text, errorRate real) RETURNS loglog_estimator
      AS 'MODULE_PATHNAME', 'loglog_add_item_agg_text'
      LANGUAGE C;
 
-CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item int, errorRate real, ndistinct int) RETURNS loglog_estimator
+CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item int, errorRate real) RETURNS loglog_estimator
      AS 'MODULE_PATHNAME', 'loglog_add_item_agg_int'
      LANGUAGE C;
 
@@ -76,14 +75,14 @@ CREATE TYPE loglog_estimator (
 
 -- LogLog based aggregate
 -- items / error rate / number of items
-CREATE AGGREGATE loglog_distinct(text, real, int)
+CREATE AGGREGATE loglog_distinct(text, real)
 (
     sfunc = loglog_add_item_agg,
     stype = loglog_estimator,
     finalfunc = loglog_get_estimate
 );
 
-CREATE AGGREGATE loglog_distinct(int, real, int)
+CREATE AGGREGATE loglog_distinct(int, real)
 (
     sfunc = loglog_add_item_agg,
     stype = loglog_estimator,

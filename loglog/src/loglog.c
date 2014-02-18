@@ -22,21 +22,19 @@ void loglog_add_hash(LogLogCounter loglog, const unsigned char * hash);
 void loglog_reset_internal(LogLogCounter loglog);
 
 /* allocate bitmap with a given length (to store the given number of bitmaps) */
-LogLogCounter loglog_create(float error, int ndistinct) {
+LogLogCounter loglog_create(float error) {
 
-  int size = loglog_get_size(error, ndistinct);
+  float m;
+  int size = loglog_get_size(error);
 
   /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
   LogLogCounter p = (LogLogCounter)palloc(size);
   
-  p->nmaps = 1.3 / (error * error);
-  p->k = (int)ceil(log2(p->nmaps));
-  p->nmaps = (int)pow(2, p->k);
+  m = 1.3 / (error * error);
+  p->bits  = (int)ceil(log2(m));
+  p->m = (int)pow(2, p->bits);
   
-  p->keysize = (p->k+7)/8; // FIXME not more than 4B (see loglog_add_hash)
-  p->mapsize = 1; // FIXME compute properly (int)ceil(log2(log2(ndistinct))/8);
-  
-  memset(p->bitmap, 0, p->mapsize * p->nmaps);
+  memset(p->data, -1, p->m);
   
   SET_VARSIZE(p, size - VARHDRSZ);
   
@@ -44,53 +42,47 @@ LogLogCounter loglog_create(float error, int ndistinct) {
   
 }
 
-int loglog_get_size(float error, int ndistinct) {
+int loglog_get_size(float error) {
 
-  int mapsize = 1;
-  int nmaps = 1.3 / (error * error);
-  int k = (int)ceil(log2(nmaps));
-  
-  nmaps = (int)pow(2, k);
+  float m = 1.3 / (error * error);
+  int bits = (int)ceil(log2(m));
 
-  // FIXME int mapsize = (int)ceil(log2(log2(ndistinct))/8);
-
-  return sizeof(LogLogCounterData) + nmaps * mapsize;
+  return sizeof(LogLogCounterData) + (int)pow(2, bits);
 
 }
 
-/* searches for the leftmost 1 */
-int loglog_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes) {
+/* searches for the leftmost 1 (aka 'rho' in the algorithm) */
+int loglog_get_min_bit(const unsigned char * buffer, int bitfrom, int nbits) {
   
-    int k = 0;
+    int b = 0;
     int byteIdx = 0;
     int bitIdx = 0;
     
-    for (k = byteFrom * 8; k < ((byteFrom + bytes) * 8); k++) {
+    for (b = bitfrom; b < nbits; b++) {
         
-        byteIdx = k / 8;
-        bitIdx=  k % 8;
+        byteIdx = b / 8;
+        bitIdx  = b % 8;
         
-        if ((buffer[byteIdx] & (0x1 << bitIdx)) != 0) {
-            return k - byteFrom *8 + 1;
-        }
+        if ((buffer[byteIdx] & (0x1 << bitIdx)) != 0)
+            return (b - bitfrom + 1);
         
     }
     
-    return (bytes*8);
-  
+    return (nbits-bitfrom) + 1;
+
 }
 
 int loglog_estimate(LogLogCounter loglog) {
   
-    int sum = 0;
-    int bitmap;
+    int j;
+    float sum = 0;
     
     /* get the estimate for each bitmap */
-    for (bitmap = 0; bitmap < loglog->nmaps; bitmap++) {
-        sum += (unsigned char) loglog->bitmap[bitmap];
+    for (j = 0; j < loglog->m; j++) {
+        sum += loglog->data[j];
     }
     
-    return 0.783 * loglog->nmaps * powf(2, sum / loglog->nmaps);
+    return 0.39701 * loglog->m * powf(2, sum / loglog->m);
 
 }
 
@@ -131,26 +123,32 @@ void loglog_add_element_int(LogLogCounter loglog, int element) {
 void loglog_add_hash(LogLogCounter loglog, const unsigned char * hash) {
   
     /* get the hash */
-    unsigned int bitmapIdx;
-    int idx;
-    int rho;
+    unsigned int idx;
+    char rho;
+
+    /* which stream is this (keep only the first 'b' bits) */
+    memcpy(&idx, hash, sizeof(int));
+    idx  = idx >> (32 - loglog->bits);
     
-    memcpy(&bitmapIdx, hash, loglog->keysize);
+    /* get the min bit (but skip the bits used for stream index) */
     
-    idx  = bitmapIdx >> (loglog->keysize*8 - loglog->k);
+    /* TODO Originally this was
+     * 
+     *      rho = hyperloglog_get_min_bit(&hash[4], hloglog->b, 64);
+     * 
+     * but that made the estimates much much worse for some reason. Hmm,
+     * maybe the shifts work differently than I thought and so it was
+     * somehow coupled to the 'idx'? */
     
-    /* get the min bit (but skip the bytes used for key) */
-    rho = loglog_get_min_bit(hash, loglog->keysize, HASH_LENGTH - loglog->keysize);
-        
-    /* set the bit of the bitmap */
-    if (rho > (unsigned char)(loglog->bitmap[idx])) {
-        loglog->bitmap[idx] = (unsigned char)rho;
-    }
+    rho = loglog_get_min_bit(&hash[4], 0, 64); /* 64-bit hash */
+    
+    /* keep the highest value */
+    loglog->data[idx] = (rho > (loglog->data[idx])) ? rho : loglog->data[idx];
 
 }
 
 void loglog_reset_internal(LogLogCounter loglog) {
     
-    memset(loglog->bitmap, 0, loglog->nmaps * loglog->mapsize);
+    memset(loglog->data, 0, loglog->m);
 
 }
