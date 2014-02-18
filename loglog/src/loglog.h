@@ -17,16 +17,13 @@ typedef struct LogLogCounterData {
     /* length of the structure */
     int32 length;
     
-    /* number of bitmaps ('m' in the algorithm) */
-	int k;
-    int nmaps;
-    
-    int keysize; /* number of bytes used for bitmap index */
-    int mapsize; /* number of bytes used for bitmap element */
+    /* number of the slots (and addressing bits) */
+	int bits;
+    int m; /* m = 2^bits*/
     
     /* bitmap used to keep the list of items (uses the very same trick as in
      * the varlena type in include/c.h */
-    unsigned char bitmap[1];
+    char data[1];
     
 } LogLogCounterData;
 
@@ -34,8 +31,8 @@ typedef LogLogCounterData * LogLogCounter;
 
 /* creates an optimal bitmap able to count a multiset with the expected
  * cardinality and the given error rate. */
-LogLogCounter loglog_create(float error, int ndistinct);
-int loglog_get_size(float error, int ndistinct);
+LogLogCounter loglog_create(float error);
+int loglog_get_size(float error);
 
 /* add element existence */
 void loglog_add_element_text(LogLogCounter loglog, const char * element, int elen);

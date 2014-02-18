@@ -19,7 +19,6 @@ PG_MODULE_MAGIC;
 #define DIG(VAL)        ((VAL) + '0')
 
 #define DEFAULT_ERROR       0.025
-#define DEFAULT_NDISTINCT   1000000
 
 PG_FUNCTION_INFO_V1(loglog_add_item_text);
 PG_FUNCTION_INFO_V1(loglog_add_item_int);
@@ -119,21 +118,17 @@ loglog_add_item_agg_text(PG_FUNCTION_ARGS)
     LogLogCounter loglog;
     text * item;
     float errorRate; /* required error rate */
-    int   ndistinct; /* expected distinct count */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       errorRate = PG_GETARG_FLOAT4(2);
-      ndistinct = PG_GETARG_INT32(3);
       
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
+      /* error rate between 0 and 1 (not 0) */
+      if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(errorRate, ndistinct);
+      loglog = loglog_create(errorRate);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -156,21 +151,17 @@ loglog_add_item_agg_int(PG_FUNCTION_ARGS)
     LogLogCounter loglog;
     int item;
     float errorRate; /* required error rate */
-    int   ndistinct; /* expected distinct count */
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       errorRate = PG_GETARG_FLOAT4(2);
-      ndistinct = PG_GETARG_INT32(3);
       
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
+      /* error rate between 0 and 1 (not 0) */
+      if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(errorRate, ndistinct);
+      loglog = loglog_create(errorRate);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -195,7 +186,7 @@ loglog_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      loglog = loglog_create(DEFAULT_ERROR, DEFAULT_NDISTINCT);
+      loglog = loglog_create(DEFAULT_ERROR);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -220,7 +211,7 @@ loglog_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      loglog = loglog_create(DEFAULT_ERROR, DEFAULT_NDISTINCT);
+      loglog = loglog_create(DEFAULT_ERROR);
     } else {
       loglog = (LogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -257,19 +248,15 @@ loglog_init(PG_FUNCTION_ARGS)
       LogLogCounter loglog;
 
       float errorRate; /* required error rate */
-      int   ndistinct; /* expected distinct count */
   
       errorRate = PG_GETARG_FLOAT4(0);
-      ndistinct = PG_GETARG_INT32(1);
       
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
+      /* error rate between 0 and 1 (not 0) */
+      if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      loglog = loglog_create(errorRate, ndistinct);
+      loglog = loglog_create(errorRate);
 
       PG_RETURN_BYTEA_P(loglog);
 }
@@ -279,19 +266,15 @@ loglog_size(PG_FUNCTION_ARGS)
 {
 
       float errorRate; /* required error rate */
-      int   ndistinct; /* expected distinct count */
   
       errorRate = PG_GETARG_FLOAT4(0);
-      ndistinct = PG_GETARG_INT32(1);
       
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
+      /* error rate between 0 and 1 (not 0) */
+      if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      PG_RETURN_INT32(loglog_get_size(errorRate, ndistinct));      
+      PG_RETURN_INT32(loglog_get_size(errorRate));      
 }
 
 Datum

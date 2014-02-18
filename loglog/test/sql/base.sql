@@ -2,14 +2,14 @@ BEGIN;
 
 CREATE EXTENSION loglog_counter;
 
-SELECT loglog_distinct(id, 0.02, 1000000) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
+SELECT loglog_distinct(id, 0.02) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
 
-SELECT loglog_distinct(id::text, 0.02, 1000000) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
+SELECT loglog_distinct(id::text, 0.02) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
 
 DO LANGUAGE plpgsql $$
 DECLARE
-    v_counter  loglog_estimator := loglog_init(0.02, 1000000);
-    v_counter2 loglog_estimator := loglog_init(0.02, 1000000);
+    v_counter  loglog_estimator := loglog_init(0.02);
+    v_counter2 loglog_estimator := loglog_init(0.02);
     v_estimate real;
     v_tmp real;
 BEGIN
