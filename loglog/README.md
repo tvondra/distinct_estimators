@@ -1,46 +1,42 @@
-PCSA Estimator
-==============
+LogLog Estimator
+================
 
-This is an implementation of PCSA algorithm as described in the paper
-"Probalistic Counting Algorithms for Data Base Applications", published
-by Flajolet and Martin in 1985. Generally it is an advanced version of
- he 'probabilistic.c' algorithm.
+This is an implementation of LogLog algorithm as described in the paper
+"LogLog Counting of Large Cardinalities," published by Flajolet and
+Durand in 2003.
 
 Contents of the extension
 -------------------------
 The extension provides the following elements
 
-* pcsa_estimator data type (may be used for columns, in PL/pgSQL)
+* loglog_estimator data type (may be used for columns, in PL/pgSQL)
 
-* functions to work with the pcsa_estimator data type
+* functions to work with the loglog_estimator data type
 
-    * `pcsa_size(nbitmaps int, keysize int)`
-    * `pcsa_init(nbitmaps int, keysize int)`
+    * `loglog_size(error_rate real)`
+    * `loglog_init(error_rate real)`
 
-    * `pcsa_add_item(counter pcsa_estimator, item text)`
-    * `pcsa_add_item(counter pcsa_estimator, item int)`
+    * `loglog_add_item(counter loglog_estimator, item text)`
+    * `loglog_add_item(counter loglog_estimator, item int)`
 
-    * `pcsa_get_estimate(counter pcsa_estimator)`
-    * `pcsa_reset(counter pcsa_estimator)`
+    * `loglog_get_estimate(counter loglog_estimator)`
+    * `loglog_reset(counter loglog_estimator)`
 
-    * `length(counter pcsa_estimator)`
+    * `length(counter loglog_estimator)`
 
   The purpose of the functions is quite obvious from the names,
   alternatively consult the SQL script for more details.
 
 * aggregate functions 
 
-    * `pcsa_distinct(text, int, int)`
-    * `pcsa_distinct(text)`
+    * `loglog_distinct(text, real)`
+    * `loglog_distinct(text)`
 
-    * `pcsa_distinct(int, int, int)`
-    * `pcsa_distinct(int)`
+    * `loglog_distinct(int, real)`
+    * `loglog_distinct(int)`
 
-  where the 1-parameter version uses 64 bitmaps and keysize 4
-  as default values for the two parameters. That's quite generous
-  and it may result in unnecessarily large estimators, so if you
-  can work with lower precision / expect less distinct values,
-  pass the parameters explicitly.
+  where the 1-parameter version uses default error rate 2.5%. If you
+  can work with lower precision, pass the parameter explicitly.
 
 
 Usage
@@ -48,21 +44,21 @@ Usage
 Using the aggregate is quite straightforward - just use it like a
 regular aggregate function
 
-    db=# SELECT pcsa_distinct(i, 32, 3)
+    db=# SELECT loglog_distinct(i, 0.01)
          FROM generate_series(1,100000) s(i);
 
 and you can use it from a PL/pgSQL (or another PL) like this:
 
     DO LANGUAGE plpgsql $$
     DECLARE
-        v_counter pcsa_estimator := pcsa_init(32, 3);
+        v_counter loglog_estimator := loglog_init(0.01);
         v_estimate real;
     BEGIN
-        PERFORM pcsa_add_item(v_counter, 1);
-        PERFORM pcsa_add_item(v_counter, 2);
-        PERFORM pcsa_add_item(v_counter, 3);
+        PERFORM loglog_add_item(v_counter, 1);
+        PERFORM loglog_add_item(v_counter, 2);
+        PERFORM loglog_add_item(v_counter, 3);
 
-        SELECT pcsa_get_estimate(v_counter) INTO v_estimate;
+        SELECT loglog_get_estimate(v_counter) INTO v_estimate;
 
         RAISE NOTICE 'estimate = %',v_estimate;
     END$$;
