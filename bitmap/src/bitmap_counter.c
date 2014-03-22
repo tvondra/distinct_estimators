@@ -8,6 +8,7 @@
 #include "bitmap.h"
 #include "utils/builtins.h"
 #include "utils/bytea.h"
+#include "utils/lsyscache.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 
@@ -21,14 +22,9 @@ PG_MODULE_MAGIC;
 #define DEFAULT_ERROR       0.025
 #define DEFAULT_NDISTINCT   1000000
 
-PG_FUNCTION_INFO_V1(bitmap_add_item_text);
-PG_FUNCTION_INFO_V1(bitmap_add_item_int);
-
-PG_FUNCTION_INFO_V1(bitmap_add_item_agg_text);
-PG_FUNCTION_INFO_V1(bitmap_add_item_agg_int);
-
-PG_FUNCTION_INFO_V1(bitmap_add_item_agg2_text);
-PG_FUNCTION_INFO_V1(bitmap_add_item_agg2_int);
+PG_FUNCTION_INFO_V1(bitmap_add_item);
+PG_FUNCTION_INFO_V1(bitmap_add_item_agg);
+PG_FUNCTION_INFO_V1(bitmap_add_item_agg2);
 
 PG_FUNCTION_INFO_V1(bitmap_get_estimate);
 PG_FUNCTION_INFO_V1(bitmap_get_ndistinct);
@@ -42,14 +38,9 @@ PG_FUNCTION_INFO_V1(bitmap_rect);
 PG_FUNCTION_INFO_V1(bitmap_send);
 PG_FUNCTION_INFO_V1(bitmap_length);
 
-Datum bitmap_add_item_text(PG_FUNCTION_ARGS);
-Datum bitmap_add_item_int(PG_FUNCTION_ARGS);
-
-Datum bitmap_add_item_agg_text(PG_FUNCTION_ARGS);
-Datum bitmap_add_item_agg_int(PG_FUNCTION_ARGS);
-
-Datum bitmap_add_item_agg2_text(PG_FUNCTION_ARGS);
-Datum bitmap_add_item_agg2_int(PG_FUNCTION_ARGS);
+Datum bitmap_add_item(PG_FUNCTION_ARGS);
+Datum bitmap_add_item_agg(PG_FUNCTION_ARGS);
+Datum bitmap_add_item_agg2(PG_FUNCTION_ARGS);
 
 Datum bitmap_get_estimate(PG_FUNCTION_ARGS);
 Datum bitmap_get_ndistinct(PG_FUNCTION_ARGS);
@@ -64,180 +55,153 @@ Datum bitmap_send(PG_FUNCTION_ARGS);
 Datum bitmap_length(PG_FUNCTION_ARGS);
 
 Datum
-bitmap_add_item_text(PG_FUNCTION_ARGS)
+bitmap_add_item(PG_FUNCTION_ARGS)
 {
 
-    BitmapCounter bc;
-    text * item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
+    BitmapCounter bitmap_counter;
 
-      bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
-      
-      /* get the new item */
-      item = PG_GETARG_TEXT_P(1);
-    
-      /* in-place update works only if executed as aggregate */
-      bc_add_item_text(bc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "s-bitmap counter must not be NULL");
+    /* requires the estimator to be already created */
+    if (PG_ARGISNULL(0))
+        elog(ERROR, "bitmap counter must not be NULL");
+
+    /* if the element is not NULL, add it to the estimator (i.e. skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+        Datum       element = PG_GETARG_DATUM(1);
+        int16       typlen;
+        bool        typbyval;
+        char        typalign;
+
+        /* estimator (we know it's not a NULL value) */
+        bitmap_counter = (BitmapCounter)PG_GETARG_BYTEA_P(0);
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            bc_add_item(bitmap_counter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            bc_add_item(bitmap_counter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
     }
-    
+
     PG_RETURN_VOID();
 
 }
 
 Datum
-bitmap_add_item_int(PG_FUNCTION_ARGS)
+bitmap_add_item_agg(PG_FUNCTION_ARGS)
 {
 
-    BitmapCounter bc;
-    int item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
-
-        bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
-        
-        /* get the new item */
-        item = PG_GETARG_INT32(1);
-        
-        /* in-place update works only if executed as aggregate */
-        bc_add_item_int(bc, item);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "s-bitmap counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
-
-}
-
-Datum
-bitmap_add_item_agg_text(PG_FUNCTION_ARGS)
-{
-	
-    BitmapCounter bc;
-    text * item;
+    BitmapCounter bitmap_counter;
     float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
     int    ndistinct; /* expected number of distinct values */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
         
-      errorRate = PG_GETARG_FLOAT4(2);
-      ndistinct = PG_GETARG_INT32(3);
-      
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      bc = bc_init(errorRate, ndistinct);
-    } else {
-      bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
+        errorRate = PG_GETARG_FLOAT4(2);
+        ndistinct = PG_GETARG_INT32(3);
+
+        /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
+        if (ndistinct < 1) {
+            elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
+        } else if ((errorRate <= 0) || (errorRate > 1)) {
+            elog(ERROR, "error rate has to be between 0 and 1");
+        }
+        
+        bitmap_counter = bc_init(errorRate, ndistinct);
+
+    } else { /* existing estimator */
+        bitmap_counter = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    bc_add_item_text(bc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            bc_add_item(bitmap_counter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            bc_add_item(bitmap_counter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(bc);
+    PG_RETURN_BYTEA_P(bitmap_counter);
     
 }
 
 Datum
-bitmap_add_item_agg_int(PG_FUNCTION_ARGS)
+bitmap_add_item_agg2(PG_FUNCTION_ARGS)
 {
-    
-    BitmapCounter bc;
-    int item;
-    float4 errorRate; /* 0 - 1, e.g. 0.01 means 1% */
-    int    ndistinct; /* expected number of distinct values */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      errorRate = PG_GETARG_FLOAT4(2);
-      ndistinct = PG_GETARG_INT32(3);
-      
-      /* ndistinct has to be positive, error rate between 0 and 1 (not 0) */
-      if (ndistinct < 1) {
-          elog(ERROR, "ndistinct (expected number of distinct values) has to at least 1");
-      } else if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      bc = bc_init(errorRate, ndistinct);
-    } else {
-      bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    bc_add_item_int(bc, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(bc);
-    
-}
 
-Datum
-bitmap_add_item_agg2_text(PG_FUNCTION_ARGS)
-{
-    
-    BitmapCounter bc;
-    text * item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      bc = bc_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
-    } else {
-      bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    bc_add_item_text(bc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(bc);
-    
-}
+    BitmapCounter bitmap_counter;
 
-Datum
-bitmap_add_item_agg2_int(PG_FUNCTION_ARGS)
-{
-    
-    BitmapCounter bc;
-    int item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      bc = bc_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
-    } else {
-      bc = (BitmapCounter)PG_GETARG_BYTEA_P(0);
+        bitmap_counter = bc_init(DEFAULT_ERROR, DEFAULT_NDISTINCT);
+    } else { /* existing estimator */
+        bitmap_counter = (BitmapCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    bc_add_item_int(bc, item);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            bc_add_item(bitmap_counter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            bc_add_item(bitmap_counter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(bc);
-    
+    PG_RETURN_BYTEA_P(bitmap_counter);
+
 }
 
 Datum

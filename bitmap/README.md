@@ -16,8 +16,7 @@ The extension provides the following elements
     * `bitmap_size(real error, item_size int)`
     * `bitmap_init(real error, item_size int)`
 
-    * `bitmap_add_item(bitmap_estimator counter, item text)`
-    * `bitmap_add_item(bitmap_estimator counter, item int)`
+    * `bitmap_add_item(bitmap_estimator counter, item anyelement)`
 
     * `bitmap_get_estimate(bitmap_estimator counter)`
     * `bitmap_get_error(bitmap_estimator counter)`
@@ -32,11 +31,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `bitmap_distinct(text, real, int)
-    * `bitmap_distinct(text)
-
-    * `bitmap_distinct(int, real, int)
-    * `bitmap_distinct(int)
+    * `bitmap_distinct(anyelement, real, int)
+    * `bitmap_distinct(anyelement)
 
   where the 1-parameter version uses 0.025 (2.5%) and 1.000.000
   as default values for the two parameters. That's quite generous

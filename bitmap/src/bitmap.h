@@ -57,8 +57,7 @@ int bc_estimate(BitmapCounter bc);
 void bc_reset(BitmapCounter bc);
 
 /* add element into the counter */
-void bc_add_item_text(BitmapCounter bc, const char * item, int length);
-void bc_add_item_int(BitmapCounter bc, int item);
+void bc_add_item(BitmapCounter bc, const char * item, int length);
 
 /* print info about the counter */
 void bc_print_info(BitmapCounter ac);

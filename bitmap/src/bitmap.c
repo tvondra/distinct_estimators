@@ -10,8 +10,7 @@
 
 #define HASH_LENGTH 16
 
-void bc_hash_text(unsigned char * buffer, const char * element, int length);
-void bc_hash_int(unsigned char * buffer, int element);
+void bc_hash(unsigned char * buffer, const char * element, int length);
 
 unsigned int bc_get_bits(const unsigned char * src, int from, int length);
 
@@ -71,14 +70,10 @@ BitmapCounter bc_init(float error, int ndistinct) {
 }
 
 /* Computes an MD5 hash of the input value (with a given length). */
-void bc_hash_text(unsigned char * buffer, const char * element, int length) {
+void bc_hash(unsigned char * buffer, const char * element, int length) {
     pg_md5_binary(element, length, buffer);
 }
 
-/* Computes an MD5 hash of the input value (with a given length). */
-void bc_hash_int(unsigned char * buffer, int element) {
-    pg_md5_binary(&element, sizeof(int), buffer);
-}
 
 /* Copies the given number of bits from the array to an unsigned integer */
 unsigned int bc_get_bits(const unsigned char * src, int from, int length) {
@@ -191,26 +186,14 @@ void bc_add_hash(BitmapCounter bc, const unsigned char * hash, int length) {
   
 }
 
-void bc_add_item_text(BitmapCounter bc, const char * item, int length) {
+void bc_add_item(BitmapCounter bc, const char * item, int length) {
 
     /* allocate buffer (for the hash result) */
     unsigned char buffer[HASH_LENGTH];
     
     /* get the hash */
-    bc_hash_text(buffer, item, length);
+    bc_hash(buffer, item, length);
     
-    bc_add_hash(bc, buffer, HASH_LENGTH);
-  
-}
-
-void bc_add_item_int(BitmapCounter bc, int item) {
-
-    /* allocate buffer (for the hash result) */
-    unsigned char buffer[HASH_LENGTH];
-    
-    /* get the hash */
-    bc_hash_int(buffer, item);
-
     bc_add_hash(bc, buffer, HASH_LENGTH);
   
 }
