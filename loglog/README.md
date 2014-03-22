@@ -16,8 +16,7 @@ The extension provides the following elements
     * `loglog_size(error_rate real)`
     * `loglog_init(error_rate real)`
 
-    * `loglog_add_item(counter loglog_estimator, item text)`
-    * `loglog_add_item(counter loglog_estimator, item int)`
+    * `loglog_add_item(counter loglog_estimator, item anyelement)`
 
     * `loglog_get_estimate(counter loglog_estimator)`
     * `loglog_reset(counter loglog_estimator)`
@@ -29,11 +28,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `loglog_distinct(text, real)`
-    * `loglog_distinct(text)`
-
-    * `loglog_distinct(int, real)`
-    * `loglog_distinct(int)`
+    * `loglog_distinct(anyelement, real)`
+    * `loglog_distinct(anyelement)`
 
   where the 1-parameter version uses default error rate 2.5%. If you
   can work with lower precision, pass the parameter explicitly.

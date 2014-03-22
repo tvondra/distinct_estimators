@@ -14,13 +14,8 @@ CREATE FUNCTION loglog_init(errorRate real) RETURNS loglog_estimator
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION loglog_add_item(counter loglog_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'loglog_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION loglog_add_item(counter loglog_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'loglog_add_item_int'
+CREATE FUNCTION loglog_add_item(counter loglog_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'loglog_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
@@ -40,20 +35,12 @@ CREATE FUNCTION length(counter loglog_estimator) RETURNS int
 
 /* functions for aggregate functions */
 
-CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item text, errorRate real) RETURNS loglog_estimator
-     AS 'MODULE_PATHNAME', 'loglog_add_item_agg_text'
+CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item anyelement, errorRate real) RETURNS loglog_estimator
+     AS 'MODULE_PATHNAME', 'loglog_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION loglog_add_item_agg(counter loglog_estimator, item int, errorRate real) RETURNS loglog_estimator
-     AS 'MODULE_PATHNAME', 'loglog_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION loglog_add_item_agg2(counter loglog_estimator, text) RETURNS loglog_estimator
-     AS 'MODULE_PATHNAME', 'loglog_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION loglog_add_item_agg2(counter loglog_estimator, int) RETURNS loglog_estimator
-     AS 'MODULE_PATHNAME', 'loglog_add_item_agg2_int'
+CREATE FUNCTION loglog_add_item_agg2(counter loglog_estimator, item anyelement) RETURNS loglog_estimator
+     AS 'MODULE_PATHNAME', 'loglog_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
@@ -75,28 +62,14 @@ CREATE TYPE loglog_estimator (
 
 -- LogLog based aggregate
 -- items / error rate / number of items
-CREATE AGGREGATE loglog_distinct(text, real)
+CREATE AGGREGATE loglog_distinct(item anyelement, error_rate real)
 (
     sfunc = loglog_add_item_agg,
     stype = loglog_estimator,
     finalfunc = loglog_get_estimate
 );
 
-CREATE AGGREGATE loglog_distinct(int, real)
-(
-    sfunc = loglog_add_item_agg,
-    stype = loglog_estimator,
-    finalfunc = loglog_get_estimate
-);
-
-CREATE AGGREGATE loglog_distinct(text)
-(
-    sfunc = loglog_add_item_agg2,
-    stype = loglog_estimator,
-    finalfunc = loglog_get_estimate
-);
-
-CREATE AGGREGATE loglog_distinct(int)
+CREATE AGGREGATE loglog_distinct(item anyelement)
 (
     sfunc = loglog_add_item_agg2,
     stype = loglog_estimator,

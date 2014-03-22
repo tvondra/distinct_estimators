@@ -15,8 +15,7 @@ int loglog_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
 int loglog_get_r(const unsigned char * buffer, int byteFrom, int bytes);
 int loglog_estimate(LogLogCounter loglog);
 
-void loglog_hash_text(unsigned char * buffer, const char * element, int length);
-void loglog_hash_int(unsigned char * buffer, int element);
+void loglog_hash(unsigned char * buffer, const char * element, int length);
 
 void loglog_add_hash(LogLogCounter loglog, const unsigned char * hash);
 void loglog_reset_internal(LogLogCounter loglog);
@@ -87,36 +86,16 @@ int loglog_estimate(LogLogCounter loglog) {
 }
 
 /* Computes an MD5 hash of the input value (with a given length). */
-void loglog_hash_text(unsigned char * buffer, const char * element, int length) {
-    pg_md5_binary(element, length, buffer);
-}
-
-/* Computes an MD5 hash of the input value (with a given length). */
-void loglog_hash_int(unsigned char * buffer, int element) {
-    pg_md5_binary(&element, sizeof(int), buffer);
-}
-
-void loglog_add_element_text(LogLogCounter loglog, const char * element, int elen) {
+void loglog_add_element(LogLogCounter loglog, const char * element, int elen) {
   
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
     
-    /* compute the hash using the salt */
-    loglog_hash_text(hash, element, elen);
+    /* compute the hash */
+    pg_md5_binary(element, elen, hash);
     
+    /* add the hash into the counter */
     loglog_add_hash(loglog, hash);
-  
-}
-
-void loglog_add_element_int(LogLogCounter loglog, int element) {
-
-    /* allocate buffer (for the hash result) */
-    unsigned char buffer[HASH_LENGTH];
-    
-    /* get the hash */
-    loglog_hash_int(buffer, element);
-
-    loglog_add_hash(loglog, buffer);
   
 }
 

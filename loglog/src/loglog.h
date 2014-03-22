@@ -35,8 +35,7 @@ LogLogCounter loglog_create(float error);
 int loglog_get_size(float error);
 
 /* add element existence */
-void loglog_add_element_text(LogLogCounter loglog, const char * element, int elen);
-void loglog_add_element_int(LogLogCounter loglog, int element);
+void loglog_add_element(LogLogCounter loglog, const char * element, int elen);
 
 /* get an estimate from the loglog counter */
 int loglog_estimate(LogLogCounter loglog);
