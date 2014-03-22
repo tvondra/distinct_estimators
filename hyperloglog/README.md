@@ -7,6 +7,12 @@ algorithm", published by Flajolet, Fusy, Gandouet and Meunier in 2007.
 Generally it is an improved version of LogLog algorithm with the last
 step modified, to combine the parts using harmonic means.
 
+This is not the only (or first) PostgreSQL extension implementing the
+HyperLogLog estimator - since 2013/02 there's [postgresql-hll](https://github.com/aggregateknowledge/postgresql-hll)
+It's a nice mature extension, so you may try it. I plan to write some
+article comparing the pros/cons of the two implementations eventually.
+
+
 Contents of the extension
 -------------------------
 The extension provides the following elements

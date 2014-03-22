@@ -1,15 +1,18 @@
 Distinct Estimators
 ===================
 
-This repository contains four PostgreSQL extension, each with
+This repository contains seven PostgreSQL extension, each with
 a different statistical estimator, useful for estimating number
 of distinct items in a data set.
 
 If you need to track distinct elements, and you can settle with
 a reasonably precise estimate, this may be an interesting option.
-These extensions may easily give you estimates with about 1% error,
-very little memory (usually just few kilobytes) and much faster
-than the usual DISTINCT aggregate.
+These extensions can give you estimates with about 1% error, with
+very little memory (usually just a few kilobytes) and are much
+faster than the usual DISTINCT aggregate.
+
+So if you don't need exact counts (and many applications can work
+with estimates withouth any problem), this may be a great tool.
 
 I wrote a [short article](http://www.fuzzy.cz/en/articles/aggregate-functions-for-distinct-estimation/)
 about it a while ago and now I've finally finished these extensions.
@@ -20,20 +23,48 @@ Usage as an aggregate
 There are two ways to use those extensions - either as an aggregate
 or as a data type (for a column). Let's see the aggregate first ...
 
-There are four extensions, each one provides an aggregate
+There are seven extensions, each one provides an aggregate
 
-1. adaptive_distinct(int, real, int)
-2. bitmap_distinct(int, real, int)
-3. pcsa_distinct(int, int, int)
-4. probabilistic_distinct(int, int, int)
+    1. hyperloglog_distinct(int, real)
+    2. adaptive_distinct(int, real, int)
+    3. bitmap_distinct(int, real, int)
+    4. pcsa_distinct(int, int, int)
+    5. probabilistic_distinct(int, int, int)
+    6. loglog_distinct(int, real)
+    7. superloglog_distinct(int, real)
 
 and about the same aggregates for text values. The second and third
 parameter are parameters of the estimator, usually affecting precision
 and memory requirements.
 
+If you don't know which estimator to use, use hyperloglog - it's state
+of the art estimator, providing precise estimates with wery low memory
+requirements.
+
+My second favourite one is the adaptive estimator, but it's mostly
+because how elegant the implementation feels.
+
+The estimators are not completely independent - some of them are
+(improved) successors of the other estimators. Using 'A > B' notation
+to express that A is an improved version of B, the relationships might
+be written like this:
+
+    * hyperloglog > superloglog > loglog
+    * pcsa > probabilistic
+
+The 'bitmap' and 'adaptive' estimators are pretty much independent,
+although all the estimators are based on probability and the ideas are
+often quite similar.
+
+Feel free experimenting with the various estimators, effect of the
+parameters etc.
+
+
+Aggregate parameters
+--------------------
 For adaptive and bitmap estimators those parameters are demanded error
-rate and expected number of distinct values, so for example to get an
-estimate with 1% error and you expect there are 1.000.000 distinct
+rate and expected number of distinct values, so for example if you want
+an estimate with 1% error and you expect there are 1.000.000 distinct
 items, you can do this
 
     db=# SELECT adaptive_distinct(i, 0.01, 1000000)
