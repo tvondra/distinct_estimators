@@ -18,6 +18,7 @@ PG_MODULE_MAGIC;
 #define VAL(CH)         ((CH) - '0')
 #define DIG(VAL)        ((VAL) + '0')
 
+#define DEFAULT_NDISTINCT   1000000000
 #define DEFAULT_ERROR       0.025
 
 PG_FUNCTION_INFO_V1(hyperloglog_add_item_text);
@@ -128,7 +129,7 @@ hyperloglog_add_item_agg_text(PG_FUNCTION_ARGS)
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      hyperloglog = hyperloglog_create(errorRate);
+      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
     } else {
       hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -161,7 +162,7 @@ hyperloglog_add_item_agg_int(PG_FUNCTION_ARGS)
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      hyperloglog = hyperloglog_create(errorRate);
+      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
     } else {
       hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -186,7 +187,7 @@ hyperloglog_add_item_agg2_text(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      hyperloglog = hyperloglog_create(DEFAULT_ERROR);
+      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, DEFAULT_ERROR);
     } else {
       hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -211,7 +212,7 @@ hyperloglog_add_item_agg2_int(PG_FUNCTION_ARGS)
   
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
-      hyperloglog = hyperloglog_create(DEFAULT_ERROR);
+      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, DEFAULT_ERROR);
     } else {
       hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
@@ -256,7 +257,7 @@ hyperloglog_init(PG_FUNCTION_ARGS)
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      hyperloglog = hyperloglog_create(errorRate);
+      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
 
       PG_RETURN_BYTEA_P(hyperloglog);
 }
@@ -274,7 +275,7 @@ hyperloglog_size(PG_FUNCTION_ARGS)
           elog(ERROR, "error rate has to be between 0 and 1");
       }
       
-      PG_RETURN_INT32(hyperloglog_get_size(errorRate));      
+      PG_RETURN_INT32(hyperloglog_get_size(DEFAULT_NDISTINCT, errorRate));      
 }
 
 Datum

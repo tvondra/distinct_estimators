@@ -12,7 +12,12 @@
 /* we're using md5, which produceds a 16B value */
 #define HASH_LENGTH 16
 
-/* constants for alpha */
+/* Alpha constants, for various numbers of 'b'.
+ * 
+ * According to hyperloglog_create the 'b' values are between 4 and 16,
+ * so the array has 16 non-zero items matching indexes 4, 5, ..., 16.
+ * This makes it very easy to access the constants.
+ */
 static float alpha[] = {0, 0, 0, 0, 0.673, 0.697, 0.709, 0.7153, 0.7183, 0.7198, 0.7205, 0.7209, 0.7211, 0.7212, 0.7213, 0.7213, 0.7213};
 
 int hyperloglog_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
@@ -25,48 +30,64 @@ void hyperloglog_hash_int(unsigned char * buffer, int element);
 void hyperloglog_add_hash(HyperLogLogCounter hloglog, const unsigned char * hash);
 void hyperloglog_reset_internal(HyperLogLogCounter hloglog);
 
-/* allocate bitmap with a given length (to store the given number of bitmaps) */
-HyperLogLogCounter hyperloglog_create(float error) {
+/*
+ * Allocate bitmap with a given length (to store the given number of bitmaps)
+ *
+ * TODO The ndistinct is not currently used to determine size of the bin (number of
+ * bits used to store the counter) - it's always 1B=8bits, for now, to make it
+ * easier to work with.
+ */
+HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
 
-  float m;
-  int size = hyperloglog_get_size(error);
+    float m;
+    int size = hyperloglog_get_size(ndistinct, error);
 
-  /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
-  HyperLogLogCounter p = (HyperLogLogCounter)palloc(size);
-  
-  if (error <= 0 || error >= 1)
-      elog(ERROR, "invalid error rate requested");
-  
-  m = 1.04 / (error * error);
-  
-  p->b = (int)ceil(log2(m));
-  
-  /* TODO Is there actually a good reason to limit the number precision to 16 bits? We're
-   * using MD5, so we have 128 bits available ... It'll require more memory but if thats
-   * what was requested, why not to allow that? */
-  
-  if (p->b < 4)
-      p->b = 4;
-  else if (p->b > 16)
-      elog(ERROR, "number of bits in HyperLogLog exceeds 16");
-           
-  p->m = (int)pow(2, p->b);
-  memset(p->data, 0, p->m);
-  
-  SET_VARSIZE(p, size - VARHDRSZ);
-  
-  return p;
-  
+    /* the bitmap is allocated as part of this memory block (-1 as one bin is already in) */
+    HyperLogLogCounter p = (HyperLogLogCounter)palloc(size);
+
+    if (error <= 0 || error >= 1)
+        elog(ERROR, "invalid error rate requested - only values in (0,1) allowed");
+
+    /* swhat is the minimum number of bins to achieve the requested error rate? */
+    m = 1.04 / (error * error);
+
+    /* how many bits do we need to index the bins (nearest power of two) */
+    p->b = (int)ceil(log2(m));
+
+    /* TODO Is there actually a good reason to limit the number precision to 16 bits? We're
+    * using MD5, so we have 128 bits available ... It'll require more memory - 16 bits is 65k
+    * bins, requiring 65kB of  memory, which indeed is a lot. But why not to allow that if
+    * that's what was requested? */
+
+    if (p->b < 4)   /* we want at least 2^4 (=16) bins */
+        p->b = 4;
+    else if (p->b > 16)
+        elog(ERROR, "number of bits in HyperLogLog exceeds 16 (requested %d)", p->b);
+
+    p->m = (int)pow(2, p->b);
+    memset(p->data, 0, p->m);
+
+    /* use 1B for a bin by default */
+    p->binbits = 8;
+
+    SET_VARSIZE(p, size - VARHDRSZ);
+
+    return p;
+
 }
 
-int hyperloglog_get_size(float error) {
+/* Computes size of the structure, depending on the requested error rate.
+ * 
+ * TODO The ndistinct is not currently used to determine size of the bin.
+ */
+int hyperloglog_get_size(int64 ndistinct, float error) {
 
   int b;
   float m;
-  
+
   if (error <= 0 || error >= 1)
       elog(ERROR, "invalid error rate requested");
-  
+
   m = 1.04 / (error * error);
   b = (int)ceil(log2(m));
 
@@ -81,40 +102,49 @@ int hyperloglog_get_size(float error) {
 
 /* searches for the leftmost 1 (aka 'rho' in the algorithm) */
 int hyperloglog_get_min_bit(const unsigned char * buffer, int bitfrom, int nbits) {
-  
+
     int b = 0;
     int byteIdx = 0;
     int bitIdx = 0;
-    
+
     for (b = bitfrom; b < nbits; b++) {
-        
+
         byteIdx = b / 8;
         bitIdx  = b % 8;
-        
+
         if ((buffer[byteIdx] & (0x1 << bitIdx)) != 0)
             return (b - bitfrom + 1);
-        
+
     }
-    
+
     return (nbits-bitfrom) + 1;
 
 }
 
+/*
+ * Computes the HLL estimate, as described in the paper.
+ * 
+ * In short it does these steps:
+ * 
+ * 1) sums the data in counters (1/2^m[i])
+ * 2) computes the raw estimate E
+ * 3) corrects the estimate for low/high values
+ * 
+ */
 int hyperloglog_estimate(HyperLogLogCounter hloglog) {
-  
+
     double sum = 0, E = 0;
     int j;
-    
+
     /* compute the sum for the indicator function */
-    for (j = 0; j < hloglog->m; j++) {
+    for (j = 0; j < hloglog->m; j++)
         sum += (1.0 / pow(2, hloglog->data[j]));
-    }
-    
+
     /* and finally the estimate itself */
     E = alpha[hloglog->b] * pow(hloglog->m, 2) / sum;
-    
+
     if (E <= (5.0 * hloglog->m / 2)) {
-        
+
         int V = 0;
         for (j = 0; j < hloglog->m; j++)
             if (hloglog->data[j] == 0)
@@ -122,16 +152,23 @@ int hyperloglog_estimate(HyperLogLogCounter hloglog) {
 
         if (V != 0)
             E = hloglog->m * log(hloglog->m / (float)V);
-        
+
     } else if (E > pow(2, 32) / 30) {
-        
+
         E = -pow(2,32) * log(1 - E / pow(2,32));
-        
-    } 
-    
+
+    }
+
     return (int)E;
 
 }
+
+/* TODO These functions are pretty-much exactly the same as for the other estimators.
+ *      Maybe moving them into a shared library, or something? */
+
+/* TODO Support additional data types - varlena, various fixed-length types. This might
+ *      use polymorphic functions (http://www.postgresql.org/docs/9.3/static/xfunc-c.html).
+ */
 
 /* Computes an MD5 hash of the input value (with a given length). */
 void hyperloglog_hash_text(unsigned char * buffer, const char * element, int length) {
@@ -144,31 +181,53 @@ void hyperloglog_hash_int(unsigned char * buffer, int element) {
 }
 
 void hyperloglog_add_element_text(HyperLogLogCounter hloglog, const char * element, int elen) {
-  
+
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
-    
+
     /* compute the hash using the salt */
     hyperloglog_hash_text(hash, element, elen);
-    
+
     hyperloglog_add_hash(hloglog, hash);
-  
+
 }
 
 void hyperloglog_add_element_int(HyperLogLogCounter hloglog, int element) {
 
     /* allocate buffer (for the hash result) */
     unsigned char buffer[HASH_LENGTH];
-    
+
     /* get the hash */
     hyperloglog_hash_int(buffer, element);
 
     hyperloglog_add_hash(hloglog, buffer);
-  
+
 }
 
+/*
+ * Adds a 32-bit hash (computed from the actual item) into the counter. First it computes
+ * the counter index from the first 32 bits of the hash, then uses the remaining data to
+ * compute the value of the counter (aka 'rho').
+ * 
+ * This assumes the hash is at least 12B of data (96b = 32b + 64b), as it supports 1B
+ * counters / rho values returning values up to 64 (which could fit into less than 8b,
+ * but whatever).
+ * 
+ * However we're internally using MD5, which produces 128b (16B), so this is OK. Using
+ * a shorter hash values (say CRC32 producing 32b values) would be possible too, but it
+ * would require some tweaks.
+ * 
+ * Important note - it's essential to keep the counter index / rho independent, otherwise
+ * the estimates will be much worse than the requested error rate. For example the 'rho'
+ * was originally computed like this:
+ * 
+ *      rho = hyperloglog_get_min_bit(&hash[4], hloglog->b, 64);
+ * 
+ * which is not independent with the index because of how the shifts work. So the current
+ * implementation simply uses the next 4B for rho.
+ */
 void hyperloglog_add_hash(HyperLogLogCounter hloglog, const unsigned char * hash) {
-  
+
     /* get the hash */
     unsigned int idx;
     char rho;
@@ -176,26 +235,20 @@ void hyperloglog_add_hash(HyperLogLogCounter hloglog, const unsigned char * hash
     /* which stream is this (keep only the first 'b' bits) */
     memcpy(&idx, hash, sizeof(int));
     idx  = idx >> (32 - hloglog->b);
-    
+
     /* get the min bit (but skip the bits used for stream index) */
-    
-    /* TODO Originally this was
-     * 
-     *      rho = hyperloglog_get_min_bit(&hash[4], hloglog->b, 64);
-     * 
-     * but that made the estimates much much worse for some reason. Hmm,
-     * maybe the shifts work differently than I thought and so it was
-     * somehow coupled to the 'idx'? */
-    
+
+    /* needs to be independent from 'idx' */
     rho = hyperloglog_get_min_bit(&hash[4], 0, 64); /* 64-bit hash */
-    
+
     /* keep the highest value */
     hloglog->data[idx] = (rho > (hloglog->data[idx])) ? rho : hloglog->data[idx];
 
 }
 
+/* Just reset the counter (set all the counters to 0). */
 void hyperloglog_reset_internal(HyperLogLogCounter hloglog) {
-    
+
     memset(hloglog->data, 0, hloglog->m);
 
 }
