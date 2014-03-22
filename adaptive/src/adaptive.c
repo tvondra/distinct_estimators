@@ -241,7 +241,7 @@ void ac_add_hash(AdaptiveCounter ac, unsigned char * hash) {
  *
  * If you already know the hash, use ac_add_hash directly.
  */
-void ac_add_item_text(AdaptiveCounter ac, const char * element, int elen) {
+void ac_add_item(AdaptiveCounter ac, const char * element, int elen) {
   
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
@@ -249,22 +249,6 @@ void ac_add_item_text(AdaptiveCounter ac, const char * element, int elen) {
     /* compute the hash */
     ac_hash_text(hash, element, elen);
   
-    ac_add_hash(ac, hash);
-  
-}
-
-/* Adds an element into the counter - computes a hash and the call ac_add_hash.
- *
- * If you already know the hash, use ac_add_hash directly.
- */
-void ac_add_item_int(AdaptiveCounter ac, int element) {
-  
-    /* get the hash */
-    unsigned char hash[HASH_LENGTH];
-    
-    /* compute the hash */
-    ac_hash_int(hash, element);
-    
     ac_add_hash(ac, hash);
   
 }

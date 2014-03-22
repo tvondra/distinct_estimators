@@ -15,8 +15,7 @@ The extension provides the following elements
     * `adaptive_size(error real, ndistinct int)`
     * `adaptive_init(error real, ndistinct int)`
 
-    * `adaptive_add_item(adaptive_estimator counter, item text)`
-    * `adaptive_add_item(adaptive_estimator counter, item int)`
+    * `adaptive_add_item(adaptive_estimator counter, item anyelement)`
 
     * `adaptive_get_estimate(adaptive_estimator counter)`
     * `adaptive_get_error(adaptive_estimator counter)`
@@ -34,10 +33,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `adaptive_distinct(text, real, int)`
-    * `adaptive_distinct(text)`
-    * `adaptive_distinct(int, real, int)`
-    * `adaptive_distinct(int)`
+    * `adaptive_distinct(anyelement, real, int)`
+    * `adaptive_distinct(anyelement)`
 
   where the 1-parameter version uses 0.025 (2.5%) and 1.000.000
   as default values for the two parameters. That's quite generous

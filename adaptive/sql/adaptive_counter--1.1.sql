@@ -4,23 +4,18 @@
 CREATE TYPE adaptive_estimator;
 
 -- get estimator size for the requested error rate / number of distinct items
-CREATE FUNCTION adaptive_size(errorRate real, ndistinct int) RETURNS int
+CREATE FUNCTION adaptive_size(error_rate real, ndistinct int) RETURNS int
      AS 'MODULE_PATHNAME', 'adaptive_size'
      LANGUAGE C;
 
 -- creates a new adaptive estimator with a given error / number of distinct items
-CREATE FUNCTION adaptive_init(errorRate real, ndistinct int) RETURNS adaptive_estimator
+CREATE FUNCTION adaptive_init(error_rate real, ndistinct int) RETURNS adaptive_estimator
      AS 'MODULE_PATHNAME', 'adaptive_init'
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION adaptive_add_item(counter adaptive_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION adaptive_add_item(counter adaptive_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_int'
+CREATE FUNCTION adaptive_add_item(counter adaptive_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'adaptive_add_item'
      LANGUAGE C;
 
 -- get error rate used when creating the estimator (as a real number)
@@ -59,20 +54,12 @@ CREATE FUNCTION adaptive_merge(adaptive_estimator, adaptive_estimator) RETURNS a
      LANGUAGE C;
 
 /* functions for the aggregates */
-CREATE FUNCTION adaptive_add_item_agg(counter adaptive_estimator, item text, errorRate real, ndistinct int) RETURNS adaptive_estimator
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg_text'
+CREATE FUNCTION adaptive_add_item_agg(counter adaptive_estimator, item anyelement, error_rate real, ndistinct int) RETURNS adaptive_estimator
+     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION adaptive_add_item_agg(counter adaptive_estimator, item int, errorRate real, ndistinct int) RETURNS adaptive_estimator
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION adaptive_add_item_agg2(counter adaptive_estimator, item text) RETURNS adaptive_estimator
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION adaptive_add_item_agg2(counter adaptive_estimator, item int) RETURNS adaptive_estimator
-     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg2_int'
+CREATE FUNCTION adaptive_add_item_agg2(counter adaptive_estimator, item anyelement) RETURNS adaptive_estimator
+     AS 'MODULE_PATHNAME', 'adaptive_add_item_agg2'
      LANGUAGE C;
 
 /* input / output functions */
@@ -93,28 +80,14 @@ CREATE TYPE adaptive_estimator (
 
 -- adaptive based aggregate
 -- item / error rate / number of items
-CREATE AGGREGATE adaptive_distinct(text, real, int)
+CREATE AGGREGATE adaptive_distinct(item anyelement, error_rate real, ndistinct int)
 (
     sfunc = adaptive_add_item_agg,
     stype = adaptive_estimator,
     finalfunc = adaptive_get_estimate
 );
 
-CREATE AGGREGATE adaptive_distinct(int, real, int)
-(
-    sfunc = adaptive_add_item_agg,
-    stype = adaptive_estimator,
-    finalfunc = adaptive_get_estimate
-);
-
-CREATE AGGREGATE adaptive_distinct(text)
-(
-    sfunc = adaptive_add_item_agg2,
-    stype = adaptive_estimator,
-    finalfunc = adaptive_get_estimate
-);
-
-CREATE AGGREGATE adaptive_distinct(int)
+CREATE AGGREGATE adaptive_distinct(item anyelement)
 (
     sfunc = adaptive_add_item_agg2,
     stype = adaptive_estimator,

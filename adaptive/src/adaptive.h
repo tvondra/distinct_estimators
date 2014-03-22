@@ -49,8 +49,7 @@ void ac_reset(AdaptiveCounter ac);
 AdaptiveCounter ac_create_copy(AdaptiveCounter src);
 
 /* add element into the counter */
-void ac_add_item_text(AdaptiveCounter ac, const char * element, int elen);
-void ac_add_item_int(AdaptiveCounter ac, int element);
+void ac_add_item(AdaptiveCounter ac, const char * element, int elen);
 
 /* print info about the counter */
 void ac_print_info(AdaptiveCounter ac);
