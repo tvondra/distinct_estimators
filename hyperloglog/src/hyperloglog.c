@@ -18,14 +18,12 @@
  * so the array has 16 non-zero items matching indexes 4, 5, ..., 16.
  * This makes it very easy to access the constants.
  */
-static float alpha[] = {0, 0, 0, 0, 0.673, 0.697, 0.709, 0.7153, 0.7183, 0.7198, 0.7205, 0.7209, 0.7211, 0.7212, 0.7213, 0.7213, 0.7213};
+static float alpha[] = {0, 0, 0, 0, 0.673, 0.697, 0.709, 0.7153, 0.7183, 0.7198, 0.7205,
+                        0.7209, 0.7211, 0.7212, 0.7213, 0.7213, 0.7213};
 
 int hyperloglog_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
 int hyperloglog_get_r(const unsigned char * buffer, int byteFrom, int bytes);
 int hyperloglog_estimate(HyperLogLogCounter hloglog);
-
-void hyperloglog_hash_text(unsigned char * buffer, const char * element, int length);
-void hyperloglog_hash_int(unsigned char * buffer, int element);
 
 void hyperloglog_add_hash(HyperLogLogCounter hloglog, const unsigned char * hash);
 void hyperloglog_reset_internal(HyperLogLogCounter hloglog);
@@ -163,44 +161,17 @@ int hyperloglog_estimate(HyperLogLogCounter hloglog) {
 
 }
 
-/* TODO These functions are pretty-much exactly the same as for the other estimators.
- *      Maybe moving them into a shared library, or something? */
 
-/* TODO Support additional data types - varlena, various fixed-length types. This might
- *      use polymorphic functions (http://www.postgresql.org/docs/9.3/static/xfunc-c.html).
- */
-
-/* Computes an MD5 hash of the input value (with a given length). */
-void hyperloglog_hash_text(unsigned char * buffer, const char * element, int length) {
-    pg_md5_binary(element, length, buffer);
-}
-
-/* Computes an MD5 hash of the input value (with a given length). */
-void hyperloglog_hash_int(unsigned char * buffer, int element) {
-    pg_md5_binary(&element, sizeof(int), buffer);
-}
-
-void hyperloglog_add_element_text(HyperLogLogCounter hloglog, const char * element, int elen) {
+void hyperloglog_add_element(HyperLogLogCounter hloglog, const char * element, int elen) {
 
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
 
     /* compute the hash using the salt */
-    hyperloglog_hash_text(hash, element, elen);
+    pg_md5_binary(element, elen, hash);
 
+    /* add the hash to the estimator */
     hyperloglog_add_hash(hloglog, hash);
-
-}
-
-void hyperloglog_add_element_int(HyperLogLogCounter hloglog, int element) {
-
-    /* allocate buffer (for the hash result) */
-    unsigned char buffer[HASH_LENGTH];
-
-    /* get the hash */
-    hyperloglog_hash_int(buffer, element);
-
-    hyperloglog_add_hash(hloglog, buffer);
 
 }
 

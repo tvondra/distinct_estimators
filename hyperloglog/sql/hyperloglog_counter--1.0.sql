@@ -4,24 +4,19 @@
 CREATE TYPE hyperloglog_estimator;
 
 -- get estimator size for the requested number of bitmaps / key size
-CREATE FUNCTION hyperloglog_size(errorRate real) RETURNS int
+CREATE FUNCTION hyperloglog_size(error_rate real) RETURNS int
      AS 'MODULE_PATHNAME', 'hyperloglog_size'
      LANGUAGE C;
 
 -- creates a new LogLog estimator with a given number of bitmaps / key size
 -- an estimator with 32 bitmaps and keysize 3 usually gives reasonable results
-CREATE FUNCTION hyperloglog_init(errorRate real) RETURNS hyperloglog_estimator
+CREATE FUNCTION hyperloglog_init(error_rate real) RETURNS hyperloglog_estimator
      AS 'MODULE_PATHNAME', 'hyperloglog_init'
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION hyperloglog_add_item(counter hyperloglog_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION hyperloglog_add_item(counter hyperloglog_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_int'
+CREATE FUNCTION hyperloglog_add_item(counter hyperloglog_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'hyperloglog_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
@@ -41,20 +36,12 @@ CREATE FUNCTION length(counter hyperloglog_estimator) RETURNS int
 
 /* functions for aggregate functions */
 
-CREATE FUNCTION hyperloglog_add_item_agg(counter hyperloglog_estimator, item text, errorRate real) RETURNS hyperloglog_estimator
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg_text'
+CREATE FUNCTION hyperloglog_add_item_agg(counter hyperloglog_estimator, item anyelement, error_rate real) RETURNS hyperloglog_estimator
+     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION hyperloglog_add_item_agg(counter hyperloglog_estimator, item int, errorRate real) RETURNS hyperloglog_estimator
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION hyperloglog_add_item_agg2(counter hyperloglog_estimator, text) RETURNS hyperloglog_estimator
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION hyperloglog_add_item_agg2(counter hyperloglog_estimator, int) RETURNS hyperloglog_estimator
-     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg2_int'
+CREATE FUNCTION hyperloglog_add_item_agg2(counter hyperloglog_estimator, item anyelement) RETURNS hyperloglog_estimator
+     AS 'MODULE_PATHNAME', 'hyperloglog_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
@@ -76,28 +63,14 @@ CREATE TYPE hyperloglog_estimator (
 
 -- LogLog based aggregate
 -- items / error rate / number of items
-CREATE AGGREGATE hyperloglog_distinct(text, real)
+CREATE AGGREGATE hyperloglog_distinct(item anyelement, error_rate real)
 (
     sfunc = hyperloglog_add_item_agg,
     stype = hyperloglog_estimator,
     finalfunc = hyperloglog_get_estimate
 );
 
-CREATE AGGREGATE hyperloglog_distinct(int, real)
-(
-    sfunc = hyperloglog_add_item_agg,
-    stype = hyperloglog_estimator,
-    finalfunc = hyperloglog_get_estimate
-);
-
-CREATE AGGREGATE hyperloglog_distinct(text)
-(
-    sfunc = hyperloglog_add_item_agg2,
-    stype = hyperloglog_estimator,
-    finalfunc = hyperloglog_get_estimate
-);
-
-CREATE AGGREGATE hyperloglog_distinct(int)
+CREATE AGGREGATE hyperloglog_distinct(item anyelement)
 (
     sfunc = hyperloglog_add_item_agg2,
     stype = hyperloglog_estimator,

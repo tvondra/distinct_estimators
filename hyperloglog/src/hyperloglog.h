@@ -41,8 +41,7 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error);
 int hyperloglog_get_size(int64 ndistinct, float error);
 
 /* add element existence */
-void hyperloglog_add_element_text(HyperLogLogCounter hloglog, const char * element, int elen);
-void hyperloglog_add_element_int(HyperLogLogCounter hloglog, int element);
+void hyperloglog_add_element(HyperLogLogCounter hloglog, const char * element, int elen);
 
 /* get an estimate from the hyperloglog counter */
 int hyperloglog_estimate(HyperLogLogCounter hloglog);

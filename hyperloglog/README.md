@@ -24,8 +24,7 @@ The extension provides the following elements
     * `hyperloglog_size(error_rate real)`
     * `hyperloglog_init(error_rate real)`
 
-    * `hyperloglog_add_item(counter hyperloglog_estimator, item text)`
-    * `hyperloglog_add_item(counter hyperloglog_estimator, item int)`
+    * `hyperloglog_add_item(counter hyperloglog_estimator, item anyelement)`
 
     * `hyperloglog_get_estimate(counter hyperloglog)`
     * `hyperloglog_reset(counter hyperloglog)`
@@ -37,11 +36,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `hyperloglog_distinct(text, real)`
-    * `hyperloglog_distinct(text)`
-
-    * `hyperloglog_distinct(int, real)`
-    * `hyperloglog_distinct(int)`
+    * `hyperloglog_distinct(anyelement, real)`
+    * `hyperloglog_distinct(anyelement)`
 
   where the 1-parameter version uses default error rate 2%. That's
   quite generous and it may result in unnecessarily large estimators,

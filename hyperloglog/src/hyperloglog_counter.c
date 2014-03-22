@@ -8,6 +8,7 @@
 #include "hyperloglog.h"
 #include "utils/builtins.h"
 #include "utils/bytea.h"
+#include "utils/lsyscache.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 
@@ -18,17 +19,13 @@ PG_MODULE_MAGIC;
 #define VAL(CH)         ((CH) - '0')
 #define DIG(VAL)        ((VAL) + '0')
 
+/* shoot for 10^9 distinct items and 2.5% error rate by default */
 #define DEFAULT_NDISTINCT   1000000000
 #define DEFAULT_ERROR       0.025
 
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_text);
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_int);
-
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg_text);
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg_int);
-
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg2_text);
-PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg2_int);
+PG_FUNCTION_INFO_V1(hyperloglog_add_item);
+PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg);
+PG_FUNCTION_INFO_V1(hyperloglog_add_item_agg2);
 
 PG_FUNCTION_INFO_V1(hyperloglog_get_estimate);
 PG_FUNCTION_INFO_V1(hyperloglog_size);
@@ -40,14 +37,9 @@ PG_FUNCTION_INFO_V1(hyperloglog_rect);
 PG_FUNCTION_INFO_V1(hyperloglog_send);
 PG_FUNCTION_INFO_V1(hyperloglog_length);
 
-Datum hyperloglog_add_item_text(PG_FUNCTION_ARGS);
-Datum hyperloglog_add_item_int(PG_FUNCTION_ARGS);
-
-Datum hyperloglog_add_item_agg_text(PG_FUNCTION_ARGS);
-Datum hyperloglog_add_item_agg_int(PG_FUNCTION_ARGS);
-
-Datum hyperloglog_add_item_agg2_text(PG_FUNCTION_ARGS);
-Datum hyperloglog_add_item_agg2_int(PG_FUNCTION_ARGS);
+Datum hyperloglog_add_item(PG_FUNCTION_ARGS);
+Datum hyperloglog_add_item_agg(PG_FUNCTION_ARGS);
+Datum hyperloglog_add_item_agg2(PG_FUNCTION_ARGS);
 
 Datum hyperloglog_get_estimate(PG_FUNCTION_ARGS);
 
@@ -61,183 +53,160 @@ Datum hyperloglog_send(PG_FUNCTION_ARGS);
 Datum hyperloglog_length(PG_FUNCTION_ARGS);
 
 Datum
-hyperloglog_add_item_text(PG_FUNCTION_ARGS)
+hyperloglog_add_item(PG_FUNCTION_ARGS)
 {
 
     HyperLogLogCounter hyperloglog;
-    text * item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
 
-      hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
-      
-      /* get the new item */
-      item = PG_GETARG_TEXT_P(1);
-    
-      /* in-place update works only if executed as aggregate */
-      hyperloglog_add_element_text(hyperloglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-      
-    } else if (PG_ARGISNULL(0)) {
+    /* requires the estimator to be already created */
+    if (PG_ARGISNULL(0))
         elog(ERROR, "hyperloglog counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
 
-}
+    /* if the element is not NULL, add it to the estimator (i.e. skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
 
-Datum
-hyperloglog_add_item_int(PG_FUNCTION_ARGS)
-{
+        Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+        Datum       element = PG_GETARG_DATUM(1);
+        int16       typlen;
+        bool        typbyval;
+        char        typalign;
 
-    HyperLogLogCounter hyperloglog;
-    int item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
-
+        /* estimator (we know it's not a NULL value) */
         hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
-        
-        /* get the new item */
-        item = PG_GETARG_INT32(1);
-        
-        /* in-place update works only if executed as aggregate */
-        hyperloglog_add_element_int(hyperloglog, item);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "hyperloglog counter must not be NULL");
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            hyperloglog_add_element(hyperloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            hyperloglog_add_element(hyperloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
     }
-    
+
     PG_RETURN_VOID();
 
 }
 
 Datum
-hyperloglog_add_item_agg_text(PG_FUNCTION_ARGS)
+hyperloglog_add_item_agg(PG_FUNCTION_ARGS)
 {
-	
+
     HyperLogLogCounter hyperloglog;
-    text * item;
     float errorRate; /* required error rate */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      errorRate = PG_GETARG_FLOAT4(2);
-      
-      /* error rate between 0 and 1 (not 0) */
-      if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
-    } else {
-      hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
+
+        errorRate = PG_GETARG_FLOAT4(2);
+
+        /* error rate between 0 and 1 (not 0) */
+        if ((errorRate <= 0) || (errorRate > 1))
+            elog(ERROR, "error rate has to be between 0 and 1");
+
+        hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
+
+    } else { /* existing estimator */
+        hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    hyperloglog_add_element_text(hyperloglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            hyperloglog_add_element(hyperloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            hyperloglog_add_element(hyperloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
     PG_RETURN_BYTEA_P(hyperloglog);
-    
+
 }
 
 Datum
-hyperloglog_add_item_agg_int(PG_FUNCTION_ARGS)
+hyperloglog_add_item_agg2(PG_FUNCTION_ARGS)
 {
-    
-    HyperLogLogCounter hyperloglog;
-    int item;
-    float errorRate; /* required error rate */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      errorRate = PG_GETARG_FLOAT4(2);
-      
-      /* error rate between 0 and 1 (not 0) */
-      if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
-    } else {
-      hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    hyperloglog_add_element_int(hyperloglog, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(hyperloglog);
-    
-}
 
-Datum
-hyperloglog_add_item_agg2_text(PG_FUNCTION_ARGS)
-{
-    
     HyperLogLogCounter hyperloglog;
-    text * item;
-  
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
     /* is the counter created (if not, create it - error 1%, 10mil items) */
     if (PG_ARGISNULL(0)) {
       hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, DEFAULT_ERROR);
     } else {
       hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    hyperloglog_add_element_text(hyperloglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(0)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            hyperloglog_add_element(hyperloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            hyperloglog_add_element(hyperloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
+    }
+
     /* return the updated bytea */
     PG_RETURN_BYTEA_P(hyperloglog);
-    
+
 }
 
-Datum
-hyperloglog_add_item_agg2_int(PG_FUNCTION_ARGS)
-{
-    
-    HyperLogLogCounter hyperloglog;
-    int item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, DEFAULT_ERROR);
-    } else {
-      hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    hyperloglog_add_element_int(hyperloglog, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(hyperloglog);
-    
-}
 
 Datum
 hyperloglog_get_estimate(PG_FUNCTION_ARGS)
 {
-  
+
     int estimate;
     HyperLogLogCounter hyperloglog = (HyperLogLogCounter)PG_GETARG_BYTEA_P(0);
-    
+
     /* in-place update works only if executed as aggregate */
     estimate = hyperloglog_estimate(hyperloglog);
-    
+
     /* return the updated bytea */
     PG_RETURN_FLOAT4(estimate);
 
@@ -249,14 +218,14 @@ hyperloglog_init(PG_FUNCTION_ARGS)
       HyperLogLogCounter hyperloglog;
 
       float errorRate; /* required error rate */
-  
+
       errorRate = PG_GETARG_FLOAT4(0);
-      
+
       /* error rate between 0 and 1 (not 0) */
       if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
-      
+
       hyperloglog = hyperloglog_create(DEFAULT_NDISTINCT, errorRate);
 
       PG_RETURN_BYTEA_P(hyperloglog);
@@ -267,15 +236,15 @@ hyperloglog_size(PG_FUNCTION_ARGS)
 {
 
       float errorRate; /* required error rate */
-  
+
       errorRate = PG_GETARG_FLOAT4(0);
-      
+
       /* error rate between 0 and 1 (not 0) */
       if ((errorRate <= 0) || (errorRate > 1)) {
           elog(ERROR, "error rate has to be between 0 and 1");
       }
-      
-      PG_RETURN_INT32(hyperloglog_get_size(DEFAULT_NDISTINCT, errorRate));      
+
+      PG_RETURN_INT32(hyperloglog_get_size(DEFAULT_NDISTINCT, errorRate));
 }
 
 Datum
