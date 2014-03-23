@@ -25,13 +25,13 @@ or as a data type (for a column). Let's see the aggregate first ...
 
 There are seven extensions, each one provides an aggregate
 
-    1. hyperloglog_distinct(anyelement)
-    2. adaptive_distinct(anyelement)
-    3. bitmap_distinct(anyelement)
-    4. pcsa_distinct(anyelement)
-    5. probabilistic_distinct(anyelement)
-    6. loglog_distinct(anyelement)
-    7. superloglog_distinct(anyelement)
+1. hyperloglog_distinct(anyelement)
+2. adaptive_distinct(anyelement)
+3. bitmap_distinct(anyelement)
+4. pcsa_distinct(anyelement)
+5. probabilistic_distinct(anyelement)
+6. loglog_distinct(anyelement)
+7. superloglog_distinct(anyelement)
 
 and about the same aggregates with parameters (mostly to tweak precision
 and memory requirements).
@@ -48,8 +48,8 @@ The estimators are not completely independent - some of them are
 to express that A is an improved version of B, the relationships might
 be written like this:
 
-    * hyperloglog > superloglog > loglog
-    * pcsa > probabilistic
+* hyperloglog > superloglog > loglog
+* pcsa > probabilistic
 
 The 'bitmap' and 'adaptive' estimators are pretty much independent,
 although all the estimators are based on probability and the ideas are
@@ -123,29 +123,34 @@ It's difficult to give a clear rule which of the extensions to choose,
 I recommend to play with them a bit, try them on an existing data set
 and you'll see which one performs best.
 
-Anyway my experiences are that:
+Anyway, the general rules are that:
 
 1. The higher the precision and expected number of distinct values,
    the more memory / CPU time you'll need.
 
-2. Adaptive/bitmap estimators are generally easier to work with, as
+2. HyperLogLog is pretty much the state of the art estimator. There
+   are probably cases when one of the others performs better, but
+   by default you should probably use HLL.
+
+3. Adaptive/bitmap estimators are generally easier to work with, as
    you can easily set the error rate / expected number of distinct
-   values.
+   values directly.
 
-3. The pcsa/probabilistic estimators are much simpler and you need
-   to play with them to get an idea what the right parameter values
-   are.
+4. The pcsa/probabilistic estimators are much simpler but it's not clear
+   what precision you'll get from particular parameter values. So you
+   need to play with them a bit to get an idea what are the right
+   parameter values.
 
-4. Pcsa/probabilistic estimators usually require less memory than
+5. Pcsa/probabilistic estimators usually require less memory than
      the adaptive/bitmap.
 
-5. Adaptive estimator has a very interesting feature - you can
+6. Adaptive estimator has a very interesting feature - you can
    merge multiple estimators into a single one, providing a global
    distinct estimate. For example you may maintain counters for
    each article category, and later merge the estimators to get
    an estimate for a group of categories.
 
-6. The pcsa tend to give bad results for low numbers of distinct
+7. The pcsa tend to give bad results for low numbers of distinct
    values - that's where adaptive/bitmap clearly win.
 
 See READMEs for individual estimators for more details.
