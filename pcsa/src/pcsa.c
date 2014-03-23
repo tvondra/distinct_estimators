@@ -25,13 +25,15 @@ PCSACounter pcsa_create(int nmaps, int keysize) {
   PCSACounter p;
   int i = 0;
   
-  p = (PCSACounter)palloc(sizeof(PCSACounterData) + (HASH_LENGTH - keysize) * nmaps);
+  size_t length = offsetof(PCSACounterData,bitmap) + (HASH_LENGTH - keysize) * nmaps;
+  
+  p = (PCSACounter)palloc(length);
   
   for (i = 0; i < (HASH_LENGTH - keysize) * nmaps; i++) {
       p->bitmap[i] = 0;
   }
 
-  SET_VARSIZE(p, sizeof(PCSACounterData) + (HASH_LENGTH - keysize) * nmaps - VARHDRSZ);
+  SET_VARSIZE(p, length);
   
   p->nmaps = nmaps;
   p->keysize = keysize;
@@ -41,7 +43,7 @@ PCSACounter pcsa_create(int nmaps, int keysize) {
 }
 
 int pcsa_get_size(int nmaps, int keysize) {
-    return sizeof(PCSACounterData) + (HASH_LENGTH - keysize) * nmaps;
+    return offsetof(PCSACounterData,bitmap) + (HASH_LENGTH - keysize) * nmaps;
 }
 
 /* searches for the leftmost 1 */

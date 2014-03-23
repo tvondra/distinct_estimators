@@ -270,7 +270,7 @@ adaptive_size(PG_FUNCTION_ARGS)
     itemSize = (sizeA > sizeB) ? sizeA : sizeB;
 
     /* store the length too (including the length field) */
-    size = sizeof(AdaptiveCounterData) + (itemSize * maxItems) - VARHDRSZ;
+    size = offsetof(AdaptiveCounterData,bitmap) + (itemSize * maxItems);
 
     PG_RETURN_INT32(size);
 

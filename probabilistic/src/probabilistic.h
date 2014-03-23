@@ -7,7 +7,7 @@
 typedef struct ProbabilisticCounterData {
     
     /* length of the struncture (in this case equal to sizeof) */
-    int length;
+    int32 length;
     
     /* number of bytes per bitmap */
     int nbytes;

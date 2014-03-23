@@ -38,10 +38,10 @@ void hyperloglog_reset_internal(HyperLogLogCounter hloglog);
 HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
 
     float m;
-    int size = hyperloglog_get_size(ndistinct, error);
+    size_t length = hyperloglog_get_size(ndistinct, error);
 
     /* the bitmap is allocated as part of this memory block (-1 as one bin is already in) */
-    HyperLogLogCounter p = (HyperLogLogCounter)palloc(size);
+    HyperLogLogCounter p = (HyperLogLogCounter)palloc(length);
 
     if (error <= 0 || error >= 1)
         elog(ERROR, "invalid error rate requested - only values in (0,1) allowed");
@@ -68,7 +68,7 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
     /* use 1B for a bin by default */
     p->binbits = 8;
 
-    SET_VARSIZE(p, size - VARHDRSZ);
+    SET_VARSIZE(p, length);
 
     return p;
 
@@ -94,7 +94,7 @@ int hyperloglog_get_size(int64 ndistinct, float error) {
   else if (b > 16)
       elog(ERROR, "number of bits in HyperLogLog exceeds 16");
 
-  return sizeof(HyperLogLogCounterData) + (int)pow(2, b);
+  return offsetof(HyperLogLogCounterData,data) + (int)pow(2, b);
 
 }
 

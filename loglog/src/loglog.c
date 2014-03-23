@@ -24,10 +24,10 @@ void loglog_reset_internal(LogLogCounter loglog);
 LogLogCounter loglog_create(float error) {
 
   float m;
-  int size = loglog_get_size(error);
+  siz_t length = loglog_get_size(error);
 
   /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
-  LogLogCounter p = (LogLogCounter)palloc(size);
+  LogLogCounter p = (LogLogCounter)palloc(length);
   
   m = 1.3 / (error * error);
   p->bits  = (int)ceil(log2(m));
@@ -35,7 +35,7 @@ LogLogCounter loglog_create(float error) {
   
   memset(p->data, -1, p->m);
   
-  SET_VARSIZE(p, size - VARHDRSZ);
+  SET_VARSIZE(p, length);
   
   return p;
   
@@ -46,7 +46,7 @@ int loglog_get_size(float error) {
   float m = 1.3 / (error * error);
   int bits = (int)ceil(log2(m));
 
-  return sizeof(LogLogCounterData) + (int)pow(2, bits);
+  return offsetof(LogLogCounterData,data) + (int)pow(2, bits);
 
 }
 

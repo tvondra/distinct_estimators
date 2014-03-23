@@ -23,7 +23,8 @@ AdaptiveCounter ac_init(float error, int ndistinct) {
   
     int itemSize;
     AdaptiveCounter p;
-    
+    size_t length;
+
     int sizeA, sizeB;
     
     /* This rule comes right from the adaptive sampling paper */
@@ -64,16 +65,14 @@ AdaptiveCounter ac_init(float error, int ndistinct) {
     
     itemSize = (sizeA > sizeB) ? sizeA : sizeB;
     
-    /* FIXME This size computation seems to be wrong, as the bitmap[1] is counted twice. So it
-             should be subtracted, but in that case the last element is missing. */
-  
     /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
-    p = (AdaptiveCounter)palloc(sizeof(AdaptiveCounterData) + (itemSize * maxItems));
+    length = offsetof(AdaptiveCounterData,bitmap) + (itemSize * maxItems);
+    p = (AdaptiveCounter)palloc(length);
   
     /* No need to zero the memory, we'll keep track of empty/used space using the variables below. */
   
     /* store the length too (including the length field) */
-    SET_VARSIZE(p, sizeof(AdaptiveCounterData) + (itemSize * maxItems) - VARHDRSZ);
+    SET_VARSIZE(p, length);
   
     p->maxItems = maxItems;
     p->itemSize = itemSize;

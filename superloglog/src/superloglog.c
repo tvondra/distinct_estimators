@@ -25,10 +25,10 @@ static int char_comparator(const void * a, const void * b);
 SuperLogLogCounter superloglog_create(float error) {
 
   float m;
-  int size = superloglog_get_size(error);
+  size_t length = superloglog_get_size(error);
 
   /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
-  SuperLogLogCounter p = (SuperLogLogCounter)palloc(size);
+  SuperLogLogCounter p = (SuperLogLogCounter)palloc(length);
   
   m = 1.3 / (error * error);
   p->bits  = (int)ceil(log2(m));
@@ -36,7 +36,7 @@ SuperLogLogCounter superloglog_create(float error) {
   
   memset(p->data, -1, p->m);
   
-  SET_VARSIZE(p, size - VARHDRSZ);
+  SET_VARSIZE(p, length);
   
   return p;
   
@@ -47,7 +47,7 @@ int superloglog_get_size(float error) {
   float m = 1.3 / (error * error);
   int bits = (int)ceil(log2(m));
 
-  return sizeof(SuperLogLogCounterData) + (int)pow(2, bits);
+  return offsetof(SuperLogLogCounterData,data) + (int)pow(2, bits);
 
 }
 

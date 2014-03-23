@@ -270,7 +270,7 @@ bitmap_size(PG_FUNCTION_ARGS)
     /* size of the bitmap (in bytes) */
     bitmapSize = nbits/sizeof(char);
     
-    PG_RETURN_INT32(sizeof(BitmapCounterData) + bitmapSize - 1);
+    PG_RETURN_INT32(offsetof(BitmapCounterData,bitmap) + bitmapSize);
 
 }
 
