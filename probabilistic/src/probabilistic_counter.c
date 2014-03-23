@@ -52,21 +52,6 @@ Datum probabilistic_recv(PG_FUNCTION_ARGS);
 Datum probabilistic_send(PG_FUNCTION_ARGS);
 Datum probabilistic_length(PG_FUNCTION_ARGS);
 
-/* FIXME Currently the regression checks fail, because one of the tests significantly
- * underestimates the count. I've noticed that changing this
- * 
- *      pc_add_element(pc, (char*)&element, sizeof(Datum));
- * 
- * to this
- * 
- *      pc_add_element(pc, (char*)&element, typlen);
- * 
- * fixes it. Apparently the zeroes somewhow 'corrupt' the hash and it impacts the
- * Probabilistic counter more than some of the other algorithms.
- * 
- * FIXME The logic handling types seems a bit inadequate - it should probably use the
- * other flags too, not just typelen. For example typbyval should be checked.
- */
 
 Datum
 probabilistic_add_item(PG_FUNCTION_ARGS)
@@ -97,13 +82,16 @@ probabilistic_add_item(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            pc_add_element(pcounter, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            pc_add_element(pcounter, (char*)element, typlen);
         }
 
     }
@@ -156,13 +144,16 @@ probabilistic_add_item_agg(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            pc_add_element(pcounter, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            pc_add_element(pcounter, (char*)element, typlen);
         }
     }
 
@@ -201,13 +192,16 @@ probabilistic_add_item_agg2(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            pc_add_element(pcounter, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            pc_add_element(pcounter, (char*)element, typlen);
         }
     }
 

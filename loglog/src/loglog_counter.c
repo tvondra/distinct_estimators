@@ -79,13 +79,16 @@ loglog_add_item(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            loglog_add_element(loglog, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             loglog_add_element(loglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            loglog_add_element(loglog, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            loglog_add_element(loglog, (char*)element, typlen);
         }
 
     }
@@ -133,13 +136,16 @@ loglog_add_item_agg(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            loglog_add_element(loglog, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             loglog_add_element(loglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            loglog_add_element(loglog, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            loglog_add_element(loglog, (char*)element, typlen);
         }
     }
 
@@ -178,13 +184,16 @@ loglog_add_item_agg2(PG_FUNCTION_ARGS)
         /* get type information for the second parameter (anyelement item) */
         get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
 
-        /* if it's not a varlena type, just use the value directly */
-        if (typlen != -1) {
-            /* use the whole Datum, zero bytes make no difference anyway */
-            loglog_add_element(loglog, (char*)&element, sizeof(Datum));
-        } else {
-            /* in-place update works only if executed as aggregate */
+        /* it this a varlena type, passed by reference or by value ? */
+        if (typlen == -1) {
+            /* varlena */
             loglog_add_element(loglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        } else if (typbyval) {
+            /* fixed-length, passed by value */
+            loglog_add_element(loglog, (char*)&element, typlen);
+        } else {
+            /* fixed-length, passed by reference */
+            loglog_add_element(loglog, (char*)element, typlen);
         }
     }
 
