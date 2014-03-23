@@ -14,13 +14,8 @@ CREATE FUNCTION probabilistic_init(nbytes int, nsalts int) RETURNS probabilistic
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION probabilistic_add_item(counter probabilistic_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION probabilistic_add_item(counter probabilistic_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_int'
+CREATE FUNCTION probabilistic_add_item(counter probabilistic_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'probabilistic_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
@@ -39,20 +34,12 @@ CREATE FUNCTION length(counter probabilistic_estimator) RETURNS int
      LANGUAGE C STRICT;
 
 /* functions for the aggregate functions */
-CREATE FUNCTION probabilistic_add_item_agg(counter probabilistic_estimator, item text, nbytes int, nsalts int) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg_text'
+CREATE FUNCTION probabilistic_add_item_agg(counter probabilistic_estimator, item anyelement, nbytes int, nsalts int) RETURNS probabilistic_estimator
+     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION probabilistic_add_item_agg(counter probabilistic_estimator, item int, nbytes int, nsalts int) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION probabilistic_add_item_agg2(counter probabilistic_estimator, item text) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION probabilistic_add_item_agg2(counter probabilistic_estimator, item int) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg2_int'
+CREATE FUNCTION probabilistic_add_item_agg2(counter probabilistic_estimator, item anyelement) RETURNS probabilistic_estimator
+     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
@@ -73,28 +60,14 @@ CREATE TYPE probabilistic_estimator (
 
 -- probabilistic counting based aggregate
 -- items / number of bytes / number of salts
-CREATE AGGREGATE probabilistic_distinct(text, int, int)
+CREATE AGGREGATE probabilistic_distinct(item anyelement, nbytes int, nsalts int)
 (
     sfunc = probabilistic_add_item_agg,
     stype = probabilistic_estimator,
     finalfunc = probabilistic_get_estimate
 );
 
-CREATE AGGREGATE probabilistic_distinct(int, int, int)
-(
-    sfunc = probabilistic_add_item_agg,
-    stype = probabilistic_estimator,
-    finalfunc = probabilistic_get_estimate
-);
-
-CREATE AGGREGATE probabilistic_distinct(text)
-(
-    sfunc = probabilistic_add_item_agg2,
-    stype = probabilistic_estimator,
-    finalfunc = probabilistic_get_estimate
-);
-
-CREATE AGGREGATE probabilistic_distinct(int)
+CREATE AGGREGATE probabilistic_distinct(item anyelement)
 (
     sfunc = probabilistic_add_item_agg2,
     stype = probabilistic_estimator,

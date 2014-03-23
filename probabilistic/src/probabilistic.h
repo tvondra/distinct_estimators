@@ -28,8 +28,7 @@ ProbabilisticCounter pc_create(int nbytes, int nsalts);
 int pc_size(int nbytes, int nsalts);
 
 /* add element existence */
-void pc_add_element_text(ProbabilisticCounter pc, char * element, int elen);
-void pc_add_element_int(ProbabilisticCounter pc, int element);
+void pc_add_element(ProbabilisticCounter pc, char * element, int elen);
     
 /* print info about the counter */
 void pc_print_info(ProbabilisticCounter pc);

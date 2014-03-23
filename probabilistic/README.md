@@ -17,8 +17,7 @@ The extension provides the following elements
     * `probabilistic_size(nbytes int, nsalts int)`
     * `probabilistic_init(nbytes int, nsalts int)`
 
-    * `probabilistic_add_item(counter probabilistic_estimator, item text)`
-    * `probabilistic_add_item(counter probabilistic_estimator, item int)`
+    * `probabilistic_add_item(counter probabilistic_estimator, item anyelement)`
 
     * `probabilistic_get_estimate(counter probabilistic_estimator)`
     * `probabilistic_reset(counter probabilistic_estimator)`
@@ -30,11 +29,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `probabilistic_distinct(text, int, int)`
-    * `probabilistic_distinct(text)`
-
-    * `probabilistic_distinct(int, int, int)`
-    * `probabilistic_distinct(int)`
+    * `probabilistic_distinct(anyelement, int, int)`
+    * `probabilistic_distinct(anyelement)`
 
   where the 1-parameter version uses 4 bytes and 32 salts as
   default values for the two parameters. That's quite generous

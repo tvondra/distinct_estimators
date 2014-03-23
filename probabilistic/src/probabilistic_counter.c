@@ -8,6 +8,7 @@
 #include "probabilistic.h"
 #include "utils/builtins.h"
 #include "utils/bytea.h"
+#include "utils/lsyscache.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 
@@ -23,14 +24,9 @@ PG_MODULE_MAGIC;
 #define MAX_NBYTES      16
 #define MAX_NSALTS      1024
 
-PG_FUNCTION_INFO_V1(probabilistic_add_item_text);
-PG_FUNCTION_INFO_V1(probabilistic_add_item_int);
-
-PG_FUNCTION_INFO_V1(probabilistic_add_item_agg_text);
-PG_FUNCTION_INFO_V1(probabilistic_add_item_agg_int);
-
-PG_FUNCTION_INFO_V1(probabilistic_add_item_agg2_text);
-PG_FUNCTION_INFO_V1(probabilistic_add_item_agg2_int);
+PG_FUNCTION_INFO_V1(probabilistic_add_item);
+PG_FUNCTION_INFO_V1(probabilistic_add_item_agg);
+PG_FUNCTION_INFO_V1(probabilistic_add_item_agg2);
 
 PG_FUNCTION_INFO_V1(probabilistic_get_estimate);
 PG_FUNCTION_INFO_V1(probabilistic_size);
@@ -42,14 +38,9 @@ PG_FUNCTION_INFO_V1(probabilistic_rect);
 PG_FUNCTION_INFO_V1(probabilistic_send);
 PG_FUNCTION_INFO_V1(probabilistic_length);
 
-Datum probabilistic_add_item_text(PG_FUNCTION_ARGS);
-Datum probabilistic_add_item_int(PG_FUNCTION_ARGS);
-
-Datum probabilistic_add_item_agg_text(PG_FUNCTION_ARGS);
-Datum probabilistic_add_item_agg_int(PG_FUNCTION_ARGS);
-
-Datum probabilistic_add_item_agg2_text(PG_FUNCTION_ARGS);
-Datum probabilistic_add_item_agg2_int(PG_FUNCTION_ARGS);
+Datum probabilistic_add_item(PG_FUNCTION_ARGS);
+Datum probabilistic_add_item_agg(PG_FUNCTION_ARGS);
+Datum probabilistic_add_item_agg2(PG_FUNCTION_ARGS);
 
 Datum probabilistic_get_estimate(PG_FUNCTION_ARGS);
 Datum probabilistic_size(PG_FUNCTION_ARGS);
@@ -61,179 +52,167 @@ Datum probabilistic_recv(PG_FUNCTION_ARGS);
 Datum probabilistic_send(PG_FUNCTION_ARGS);
 Datum probabilistic_length(PG_FUNCTION_ARGS);
 
+/* FIXME Currently the regression checks fail, because one of the tests significantly
+ * underestimates the count. I've noticed that changing this
+ * 
+ *      pc_add_element(pc, (char*)&element, sizeof(Datum));
+ * 
+ * to this
+ * 
+ *      pc_add_element(pc, (char*)&element, typlen);
+ * 
+ * fixes it. Apparently the zeroes somewhow 'corrupt' the hash and it impacts the
+ * Probabilistic counter more than some of the other algorithms.
+ * 
+ * FIXME The logic handling types seems a bit inadequate - it should probably use the
+ * other flags too, not just typelen. For example typbyval should be checked.
+ */
+
 Datum
-probabilistic_add_item_text(PG_FUNCTION_ARGS)
+probabilistic_add_item(PG_FUNCTION_ARGS)
 {
 
-    ProbabilisticCounter pc;
-    text * item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
+    ProbabilisticCounter pcounter;
 
-      pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
-      
-      /* get the new item */
-      item = PG_GETARG_TEXT_P(1);
-    
-      /* in-place update works only if executed as aggregate */
-      pc_add_element_text(pc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-      
-    } else if (PG_ARGISNULL(0)) {
+    /* requires the estimator to be already created */
+    if (PG_ARGISNULL(0))
         elog(ERROR, "probabilistic counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
 
+    /* if the element is not NULL, add it to the estimator (i.e. skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+        Datum       element = PG_GETARG_DATUM(1);
+        int16       typlen;
+        bool        typbyval;
+        char        typalign;
+
+        /* estimator (we know it's not a NULL value) */
+        pcounter = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
+    }
+
+    PG_RETURN_VOID();
+    
 }
 
 Datum
-probabilistic_add_item_int(PG_FUNCTION_ARGS)
+probabilistic_add_item_agg(PG_FUNCTION_ARGS)
 {
 
-    ProbabilisticCounter pc;
-    int item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
-
-        pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
-        
-        /* get the new item */
-        item = PG_GETARG_INT32(1);
-        
-        /* in-place update works only if executed as aggregate */
-        pc_add_element_int(pc, item);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "probabilistic counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
-
-}
-
-Datum
-probabilistic_add_item_agg_text(PG_FUNCTION_ARGS)
-{
-	
-    ProbabilisticCounter pc;
-    text * item;
+    ProbabilisticCounter pcounter;
     int  nbytes; /* number of bytes per salt */
     int  nsalts; /* number of salts */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      nbytes = PG_GETARG_INT32(2);
-      nsalts = PG_GETARG_INT32(3);
+
+        nbytes = PG_GETARG_INT32(2);
+        nsalts = PG_GETARG_INT32(3);
       
-      /* nbytes and nsalts have to be positive */
-      if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
-          elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
-      } else if (nsalts < 1) {
-          elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
-      }
-      
-      pc = pc_create(nbytes, nsalts);
-    } else {
-      pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
+        /* nbytes and nsalts have to be positive */
+        if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
+            elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
+        } else if (nsalts < 1) {
+            elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
+        }
+
+        pcounter = pc_create(nbytes, nsalts);
+
+    } else { /* existing estimator */
+        pcounter = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pc_add_element_text(pc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pc);
+    PG_RETURN_BYTEA_P(pcounter);
     
 }
 
 Datum
-probabilistic_add_item_agg_int(PG_FUNCTION_ARGS)
+probabilistic_add_item_agg2(PG_FUNCTION_ARGS)
 {
-    
-    ProbabilisticCounter pc;
-    int item;
-    int  nbytes; /* number of bytes per salt */
-    int  nsalts; /* number of salts */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      nbytes = PG_GETARG_INT32(2);
-      nsalts = PG_GETARG_INT32(3);
-      
-      /* nbytes and nsalts have to be positive */
-      if ((nbytes < 1) || (nbytes > MAX_NBYTES)) {
-          elog(ERROR, "number of bytes per bitmap has to be between 1 and %d", MAX_NBYTES);
-      } else if (nsalts < 1) {
-          elog(ERROR, "number salts has to be between 1 and %d", MAX_NSALTS);
-      }
-      
-      pc = pc_create(nbytes, nsalts);
-    } else {
-      pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pc_add_element_int(pc, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pc);
-    
-}
 
-Datum
-probabilistic_add_item_agg2_text(PG_FUNCTION_ARGS)
-{
-    
-    ProbabilisticCounter pc;
-    text * item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      pc = pc_create(DEFAULT_NBYTES, DEFAULT_NSALTS);
-    } else {
-      pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pc_add_element_text(pc, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pc);
-    
-}
+    ProbabilisticCounter pcounter;
 
-Datum
-probabilistic_add_item_agg2_int(PG_FUNCTION_ARGS)
-{
-    
-    ProbabilisticCounter pc;
-    int item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      pc = pc_create(DEFAULT_NBYTES, DEFAULT_NSALTS);
-    } else {
-      pc = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
+        pcounter = pc_create(DEFAULT_NBYTES, DEFAULT_NSALTS);
+    } else { /* existing estimator */
+        pcounter = (ProbabilisticCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pc_add_element_int(pc, item);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pc_add_element(pcounter, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pc_add_element(pcounter, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pc);
+    PG_RETURN_BYTEA_P(pcounter);
     
 }
 

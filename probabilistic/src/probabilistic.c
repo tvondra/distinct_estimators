@@ -34,8 +34,7 @@ int pc_estimate(ProbabilisticCounter pc);
 int pc_get_r(const unsigned char * buffer, int byteFrom, int bytes);
 int pc_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
 
-void pc_hash_text(unsigned char * buffer, char salt, const char * element, int elen);
-void pc_hash_int(unsigned char * buffer, char salt, int element);
+void pc_hash(unsigned char * buffer, char salt, const char * element, int elen);
 
 /* Allocate bitmap with a given length (to store the given number of elements).
  * 
@@ -135,7 +134,7 @@ int pc_estimate(ProbabilisticCounter pc) {
   
 }
 
-void pc_hash_text(unsigned char * buffer, char salt, const char * element, int elen) {
+void pc_hash(unsigned char * buffer, char salt, const char * element, int elen) {
     
     unsigned char item[elen + 1];
     
@@ -146,18 +145,7 @@ void pc_hash_text(unsigned char * buffer, char salt, const char * element, int e
 
 }
 
-void pc_hash_int(unsigned char * buffer, char salt, int element) {
-  
-    unsigned char item[5];
-    
-    memcpy(item, &salt, 1);
-    memcpy(item+1, &element, 4);
-  
-    pg_md5_binary(item, 5, buffer);
-
-}
-
-void pc_add_element_text(ProbabilisticCounter pc, char * element, int elen) {
+void pc_add_element(ProbabilisticCounter pc, char * element, int elen) {
   
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
@@ -168,37 +156,7 @@ void pc_add_element_text(ProbabilisticCounter pc, char * element, int elen) {
     for (salt = 0; salt < pc->nsalts; salt++) {
         
         /* compute the hash using the salt */
-        pc_hash_text(hash, salt, element, elen);
-        
-        /* for each salt, process all the slices */
-        for (slice = 0; slice < (HASH_LENGTH / pc->nbytes); slice++) {
-        
-            /* get the min bit (but skip the previous slices) */
-            int bit = pc_get_min_bit(hash, (slice * pc->nbytes), pc->nbytes);
-            
-            /* get the current byte/bit index */
-            int byteIdx = (HASH_LENGTH * salt) + (slice * pc->nbytes) + bit / 8;
-            int bitIdx = bit % 8;
-            
-            /* set the bit of the bitmap */
-            pc->bitmap[byteIdx] = pc->bitmap[byteIdx] | (0x1 << bitIdx);
-        
-        }
-    }
-}
-
-void pc_add_element_int(ProbabilisticCounter pc, int element) {
-  
-    /* get the hash */
-    unsigned char hash[HASH_LENGTH];
-    
-    int salt, slice;
-    
-    /* compute hash for each salt, split the hash into pc->nbytes slices */
-    for (salt = 0; salt < pc->nsalts; salt++) {
-        
-        /* compute the hash using the salt */
-        pc_hash_int(hash, salt, element);
+        pc_hash(hash, salt, element, elen);
         
         /* for each salt, process all the slices */
         for (slice = 0; slice < (HASH_LENGTH / pc->nbytes); slice++) {
