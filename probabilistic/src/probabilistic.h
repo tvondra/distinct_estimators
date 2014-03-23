@@ -1,3 +1,5 @@
+#include "postgres.h"
+
 /* Length of hash (MD5 => 16B) */
 #define HASH_LENGTH 16
 

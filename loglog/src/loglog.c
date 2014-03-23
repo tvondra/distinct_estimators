@@ -24,7 +24,7 @@ void loglog_reset_internal(LogLogCounter loglog);
 LogLogCounter loglog_create(float error) {
 
   float m;
-  siz_t length = loglog_get_size(error);
+  size_t length = loglog_get_size(error);
 
   /* the bitmap is allocated as part of this memory block (-1 as one char is already in) */
   LogLogCounter p = (LogLogCounter)palloc(length);
