@@ -25,20 +25,19 @@ or as a data type (for a column). Let's see the aggregate first ...
 
 There are seven extensions, each one provides an aggregate
 
-    1. hyperloglog_distinct(int, real)
-    2. adaptive_distinct(int, real, int)
-    3. bitmap_distinct(int, real, int)
-    4. pcsa_distinct(int, int, int)
-    5. probabilistic_distinct(int, int, int)
-    6. loglog_distinct(int, real)
-    7. superloglog_distinct(int, real)
+    1. hyperloglog_distinct(anyelement)
+    2. adaptive_distinct(anyelement)
+    3. bitmap_distinct(anyelement)
+    4. pcsa_distinct(anyelement)
+    5. probabilistic_distinct(anyelement)
+    6. loglog_distinct(anyelement)
+    7. superloglog_distinct(anyelement)
 
-and about the same aggregates for text values. The second and third
-parameter are parameters of the estimator, usually affecting precision
-and memory requirements.
+and about the same aggregates with parameters (mostly to tweak precision
+and memory requirements).
 
-If you don't know which estimator to use, use hyperloglog - it's state
-of the art estimator, providing precise estimates with wery low memory
+If you don't know which of the estimators to use, use hyperloglog - it's
+state of the art estimator, providing precise estimates with very low memory
 requirements.
 
 My second favourite one is the adaptive estimator, but it's mostly
