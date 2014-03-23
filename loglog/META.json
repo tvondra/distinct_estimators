@@ -2,7 +2,7 @@
    "name": "loglog_estimator",
    "abstract": "Estimates number of distinct elements in a data set (aggregate and a data type).",
    "description": "Provides an alternative to COUNT(DISTINCT) aggregate, computing an estimate of number of distinct values, and a data type that may be used within a table (and updated continuously). This implementation is based on LogLog algorithm (see the paper 'LogLog Counting of Large Cardinalities,' published by Flajolet and Durand in 2003.",
-   "version": "1.0.0",
+   "version": "1.1.0",
    "maintainer": "Tomas Vondra <tv@fuzzy.cz>",
    "license": "bsd",
    "prereqs": {
@@ -14,9 +14,9 @@
    },
    "provides": {
      "pcsa_estimator": {
-       "file": "sql/loglog_estimator--1.1.sql",
+       "file": "sql/loglog_estimator--1.1.0.sql",
        "docfile" : "README.md",
-       "version": "1.0.0"
+       "version": "1.1.0"
      }
    },
    "resources": {

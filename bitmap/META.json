@@ -2,7 +2,7 @@
    "name": "bitmap_estimator",
    "abstract": "Estimates number of distinct elements in a data set (aggregate and a data type).",
    "description": "Provides an alternative to COUNT(DISTINCT) aggregate, computing an estimate of number of distinct values, and a data type that may be used within a table (and updated continuously). This implementation is based on self-learning bitmap (see the paper 'Distinct Counting with a Self-Learning Bitmap' by Aiyou Chen and Jin Cao, published in 2009).",
-   "version": "1.1.0",
+   "version": "1.2.0",
    "maintainer": "Tomas Vondra <tv@fuzzy.cz>",
    "license": "bsd",
    "prereqs": {
@@ -14,9 +14,9 @@
    },
    "provides": {
      "pcsa_estimator": {
-       "file": "sql/bitmap_estimator--1.1.sql",
+       "file": "sql/bitmap_estimator--1.2.0.sql",
        "docfile" : "README.md",
-       "version": "1.1.0"
+       "version": "1.2.0"
      }
    },
    "resources": {
