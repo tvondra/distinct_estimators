@@ -8,6 +8,7 @@
 #include "pcsa.h"
 #include "utils/builtins.h"
 #include "utils/bytea.h"
+#include "utils/lsyscache.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 
@@ -24,14 +25,9 @@ PG_MODULE_MAGIC;
 #define MAX_KEYSIZE         4
 #define MAX_BITMAPS         2048
 
-PG_FUNCTION_INFO_V1(pcsa_add_item_text);
-PG_FUNCTION_INFO_V1(pcsa_add_item_int);
-
-PG_FUNCTION_INFO_V1(pcsa_add_item_agg_text);
-PG_FUNCTION_INFO_V1(pcsa_add_item_agg_int);
-
-PG_FUNCTION_INFO_V1(pcsa_add_item_agg2_text);
-PG_FUNCTION_INFO_V1(pcsa_add_item_agg2_int);
+PG_FUNCTION_INFO_V1(pcsa_add_item);
+PG_FUNCTION_INFO_V1(pcsa_add_item_agg);
+PG_FUNCTION_INFO_V1(pcsa_add_item_agg2);
 
 PG_FUNCTION_INFO_V1(pcsa_get_estimate);
 PG_FUNCTION_INFO_V1(pcsa_size);
@@ -43,14 +39,9 @@ PG_FUNCTION_INFO_V1(pcsa_rect);
 PG_FUNCTION_INFO_V1(pcsa_send);
 PG_FUNCTION_INFO_V1(pcsa_length);
 
-Datum pcsa_add_item_text(PG_FUNCTION_ARGS);
-Datum pcsa_add_item_int(PG_FUNCTION_ARGS);
-
-Datum pcsa_add_item_agg_text(PG_FUNCTION_ARGS);
-Datum pcsa_add_item_agg_int(PG_FUNCTION_ARGS);
-
-Datum pcsa_add_item_agg2_text(PG_FUNCTION_ARGS);
-Datum pcsa_add_item_agg2_int(PG_FUNCTION_ARGS);
+Datum pcsa_add_item(PG_FUNCTION_ARGS);
+Datum pcsa_add_item_agg(PG_FUNCTION_ARGS);
+Datum pcsa_add_item_agg2(PG_FUNCTION_ARGS);
 
 Datum pcsa_get_estimate(PG_FUNCTION_ARGS);
 Datum pcsa_size(PG_FUNCTION_ARGS);
@@ -62,180 +53,167 @@ Datum pcsa_recv(PG_FUNCTION_ARGS);
 Datum pcsa_send(PG_FUNCTION_ARGS);
 Datum pcsa_length(PG_FUNCTION_ARGS);
 
+/* FIXME Currently the regression checks fail, because one of the tests significantly
+ * underestimates the count. I've noticed that changing this
+ * 
+ *      pcsa_add_element(pcsa, (char*)&element, sizeof(Datum));
+ * 
+ * to this
+ * 
+ *      pcsa_add_element(pcsa, (char*)&element, typlen);
+ * 
+ * fixes it. Apparently the zeroes somewhow 'corrupt' the hash and it impacts the PCSA
+ * more than the other algorithms.
+ * 
+ * FIXME The logic handling types seems a bit inadequate - it should probably use the
+ * other flags too, not just typelen. For example typbyval should be checked.
+ */
+
 Datum
-pcsa_add_item_text(PG_FUNCTION_ARGS)
+pcsa_add_item(PG_FUNCTION_ARGS)
 {
 
     PCSACounter pcsa;
-    text * item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
 
-      pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
-      
-      /* get the new item */
-      item = PG_GETARG_TEXT_P(1);
-    
-      /* in-place update works only if executed as aggregate */
-      pcsa_add_element_text(pcsa, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-      
-    } else if (PG_ARGISNULL(0)) {
+    /* requires the estimator to be already created */
+    if (PG_ARGISNULL(0))
         elog(ERROR, "pcsa counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
 
-}
+    /* if the element is not NULL, add it to the estimator (i.e. skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
 
-Datum
-pcsa_add_item_int(PG_FUNCTION_ARGS)
-{
+        Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+        Datum       element = PG_GETARG_DATUM(1);
+        int16       typlen;
+        bool        typbyval;
+        char        typalign;
 
-    PCSACounter pcsa;
-    int item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
-
+        /* estimator (we know it's not a NULL value) */
         pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
-        
-        /* get the new item */
-        item = PG_GETARG_INT32(1);
-        
-        /* in-place update works only if executed as aggregate */
-        pcsa_add_element_int(pcsa, item);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "pcsa counter must not be NULL");
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pcsa_add_element(pcsa, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pcsa_add_element(pcsa, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
     }
-    
+
     PG_RETURN_VOID();
 
 }
 
 Datum
-pcsa_add_item_agg_text(PG_FUNCTION_ARGS)
+pcsa_add_item_agg(PG_FUNCTION_ARGS)
 {
-	
+
     PCSACounter pcsa;
-    text * item;
     int  bitmaps; /* number of bitmaps */
     int  keysize; /* keysize */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
+
+        bitmaps = PG_GETARG_INT32(2);
+        keysize = PG_GETARG_INT32(3);
       
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
-      }
-      
-      pcsa = pcsa_create(bitmaps, keysize);
-    } else {
-      pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
+        /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
+        if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
+            elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
+        } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
+            elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
+        }
+        
+        pcsa = pcsa_create(bitmaps, keysize);
+
+    } else { /* existing estimator */
+        pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pcsa_add_element_text(pcsa, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pcsa_add_element(pcsa, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pcsa_add_element(pcsa, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
     PG_RETURN_BYTEA_P(pcsa);
     
 }
 
 Datum
-pcsa_add_item_agg_int(PG_FUNCTION_ARGS)
+pcsa_add_item_agg2(PG_FUNCTION_ARGS)
 {
-    
-    PCSACounter pcsa;
-    int item;
-    int  bitmaps; /* number of bitmaps */
-    int  keysize; /* keysize */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      bitmaps = PG_GETARG_INT32(2);
-      keysize = PG_GETARG_INT32(3);
-      
-      /* key size has to be between 1 and 4, bitmaps between 1 and 2048 */
-      if ((keysize < 1) || (keysize > MAX_KEYSIZE)) {
-          elog(ERROR, "key size has to be between 1 and %d", MAX_KEYSIZE);
-      } else if ((bitmaps < 1) || (bitmaps > MAX_BITMAPS)) {
-          elog(ERROR, "number of bitmaps has to be between 1 and %d", MAX_BITMAPS);
-      }
-      
-      pcsa = pcsa_create(bitmaps, keysize);
-    } else {
-      pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pcsa_add_element_int(pcsa, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pcsa);
-    
-}
 
-Datum
-pcsa_add_item_agg2_text(PG_FUNCTION_ARGS)
-{
-    
     PCSACounter pcsa;
-    text * item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      pcsa = pcsa_create(DEFAULT_NBITMAPS, DEFAULT_KEYSIZE);
-    } else {
-      pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pcsa_add_element_text(pcsa, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(pcsa);
-    
-}
 
-Datum
-pcsa_add_item_agg2_int(PG_FUNCTION_ARGS)
-{
-    
-    PCSACounter pcsa;
-    int item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      pcsa = pcsa_create(DEFAULT_NBITMAPS, DEFAULT_KEYSIZE);
-    } else {
-      pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
+        pcsa = pcsa_create(DEFAULT_NBITMAPS, DEFAULT_KEYSIZE);
+    } else { /* existing estimator */
+        pcsa = (PCSACounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    pcsa_add_element_int(pcsa, item);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            pcsa_add_element(pcsa, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            pcsa_add_element(pcsa, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
     PG_RETURN_BYTEA_P(pcsa);
-    
 }
 
 Datum

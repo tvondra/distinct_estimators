@@ -17,8 +17,7 @@ The extension provides the following elements
     * `pcsa_size(nbitmaps int, keysize int)`
     * `pcsa_init(nbitmaps int, keysize int)`
 
-    * `pcsa_add_item(counter pcsa_estimator, item text)`
-    * `pcsa_add_item(counter pcsa_estimator, item int)`
+    * `pcsa_add_item(counter pcsa_estimator, item anyelement)`
 
     * `pcsa_get_estimate(counter pcsa_estimator)`
     * `pcsa_reset(counter pcsa_estimator)`
@@ -30,11 +29,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `pcsa_distinct(text, int, int)`
-    * `pcsa_distinct(text)`
-
-    * `pcsa_distinct(int, int, int)`
-    * `pcsa_distinct(int)`
+    * `pcsa_distinct(anyelement, int, int)`
+    * `pcsa_distinct(anyelement)`
 
   where the 1-parameter version uses 64 bitmaps and keysize 4
   as default values for the two parameters. That's quite generous

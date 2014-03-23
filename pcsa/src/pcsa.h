@@ -40,8 +40,7 @@ PCSACounter pcsa_create(int nmaps, int keysize);
 int pcsa_get_size(int nmaps, int keysize);
 
 /* add element existence */
-void pcsa_add_element_text(PCSACounter pcsa, const char * element, int elen);
-void pcsa_add_element_int(PCSACounter pcsa, int element);
+void pcsa_add_element(PCSACounter pcsa, const char * element, int elen);
 
 /* get an estimate from the probabilistic counter */
 int pcsa_estimate(PCSACounter pcsa);

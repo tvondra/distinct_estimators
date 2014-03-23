@@ -15,9 +15,6 @@ int pcsa_get_min_bit(const unsigned char * buffer, int byteFrom, int bytes);
 int pcsa_get_r(const unsigned char * buffer, int byteFrom, int bytes);
 int pcsa_estimate(PCSACounter pcsa);
 
-void pcsa_hash_text(unsigned char * buffer, const char * element, int length);
-void pcsa_hash_int(unsigned char * buffer, int element);
-
 void pcsa_add_hash(PCSACounter pcsa, const unsigned char * hash);
 void pcsa_reset_internal(PCSACounter pcsa);
 
@@ -105,37 +102,16 @@ int pcsa_estimate(PCSACounter pcsa) {
   
 }
 
-/* Computes an MD5 hash of the input value (with a given length). */
-void pcsa_hash_text(unsigned char * buffer, const char * element, int length) {
-    pg_md5_binary(element, length, buffer);
-}
-
-/* Computes an MD5 hash of the input value (with a given length). */
-void pcsa_hash_int(unsigned char * buffer, int element) {
-    pg_md5_binary(&element, sizeof(int), buffer);
-}
-
-void pcsa_add_element_text(PCSACounter pcsa, const char * element, int elen) {
+void pcsa_add_element(PCSACounter pcsa, const char * element, int elen) {
   
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
     
-    /* compute the hash using the salt */
-    pcsa_hash_text(hash, element, elen);
+    /* compute the hash */
+    pg_md5_binary(element, elen, hash);
     
+    /* add the hash to the counter */
     pcsa_add_hash(pcsa, hash);
-  
-}
-
-void pcsa_add_element_int(PCSACounter pcsa, int element) {
-
-    /* allocate buffer (for the hash result) */
-    unsigned char buffer[HASH_LENGTH];
-    
-    /* get the hash */
-    pcsa_hash_int(buffer, element);
-
-    pcsa_add_hash(pcsa, buffer);
   
 }
 

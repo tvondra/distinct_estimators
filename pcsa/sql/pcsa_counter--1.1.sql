@@ -15,13 +15,8 @@ CREATE FUNCTION pcsa_init(nbitmaps int, keysize int) RETURNS pcsa_estimator
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION pcsa_add_item(counter pcsa_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION pcsa_add_item(counter pcsa_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_int'
+CREATE FUNCTION pcsa_add_item(counter pcsa_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'pcsa_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
@@ -41,20 +36,12 @@ CREATE FUNCTION length(counter pcsa_estimator) RETURNS int
 
 /* functions for aggregate functions */
 
-CREATE FUNCTION pcsa_add_item_agg(counter pcsa_estimator, item text, nbitmaps integer, keysize integer) RETURNS pcsa_estimator
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg_text'
+CREATE FUNCTION pcsa_add_item_agg(counter pcsa_estimator, item anyelement, nbitmaps integer, keysize integer) RETURNS pcsa_estimator
+     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION pcsa_add_item_agg(counter pcsa_estimator, item int, nbitmaps integer, keysize integer) RETURNS pcsa_estimator
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION pcsa_add_item_agg2(counter pcsa_estimator, text) RETURNS pcsa_estimator
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION pcsa_add_item_agg2(counter pcsa_estimator, int) RETURNS pcsa_estimator
-     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg2_int'
+CREATE FUNCTION pcsa_add_item_agg2(counter pcsa_estimator, item anyelement) RETURNS pcsa_estimator
+     AS 'MODULE_PATHNAME', 'pcsa_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
@@ -76,28 +63,14 @@ CREATE TYPE pcsa_estimator (
 
 -- pcsa based aggregate
 -- items / error rate / number of items
-CREATE AGGREGATE pcsa_distinct(text, int, int)
+CREATE AGGREGATE pcsa_distinct(item anyelement, nbitmaps int, keysize int)
 (
     sfunc = pcsa_add_item_agg,
     stype = pcsa_estimator,
     finalfunc = pcsa_get_estimate
 );
 
-CREATE AGGREGATE pcsa_distinct(int, int, int)
-(
-    sfunc = pcsa_add_item_agg,
-    stype = pcsa_estimator,
-    finalfunc = pcsa_get_estimate
-);
-
-CREATE AGGREGATE pcsa_distinct(text)
-(
-    sfunc = pcsa_add_item_agg2,
-    stype = pcsa_estimator,
-    finalfunc = pcsa_get_estimate
-);
-
-CREATE AGGREGATE pcsa_distinct(int)
+CREATE AGGREGATE pcsa_distinct(item anyelement)
 (
     sfunc = pcsa_add_item_agg2,
     stype = pcsa_estimator,
