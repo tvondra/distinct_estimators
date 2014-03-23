@@ -35,8 +35,7 @@ SuperLogLogCounter superloglog_create(float error);
 int superloglog_get_size(float error);
 
 /* add element existence */
-void superloglog_add_element_text(SuperLogLogCounter sloglog, const char * element, int elen);
-void superloglog_add_element_int(SuperLogLogCounter sloglog, int element);
+void superloglog_add_element(SuperLogLogCounter sloglog, const char * element, int elen);
 
 /* get an estimate from the loglog counter */
 int superloglog_estimate(SuperLogLogCounter loglog);

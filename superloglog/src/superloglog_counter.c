@@ -8,6 +8,7 @@
 #include "superloglog.h"
 #include "utils/builtins.h"
 #include "utils/bytea.h"
+#include "utils/lsyscache.h"
 #include "lib/stringinfo.h"
 #include "libpq/pqformat.h"
 
@@ -20,14 +21,9 @@ PG_MODULE_MAGIC;
 
 #define DEFAULT_ERROR       0.025
 
-PG_FUNCTION_INFO_V1(superloglog_add_item_text);
-PG_FUNCTION_INFO_V1(superloglog_add_item_int);
-
-PG_FUNCTION_INFO_V1(superloglog_add_item_agg_text);
-PG_FUNCTION_INFO_V1(superloglog_add_item_agg_int);
-
-PG_FUNCTION_INFO_V1(superloglog_add_item_agg2_text);
-PG_FUNCTION_INFO_V1(superloglog_add_item_agg2_int);
+PG_FUNCTION_INFO_V1(superloglog_add_item);
+PG_FUNCTION_INFO_V1(superloglog_add_item_agg);
+PG_FUNCTION_INFO_V1(superloglog_add_item_agg2);
 
 PG_FUNCTION_INFO_V1(superloglog_get_estimate);
 PG_FUNCTION_INFO_V1(superloglog_size);
@@ -39,14 +35,9 @@ PG_FUNCTION_INFO_V1(superloglog_rect);
 PG_FUNCTION_INFO_V1(superloglog_send);
 PG_FUNCTION_INFO_V1(superloglog_length);
 
-Datum superloglog_add_item_text(PG_FUNCTION_ARGS);
-Datum superloglog_add_item_int(PG_FUNCTION_ARGS);
-
-Datum superloglog_add_item_agg_text(PG_FUNCTION_ARGS);
-Datum superloglog_add_item_agg_int(PG_FUNCTION_ARGS);
-
-Datum superloglog_add_item_agg2_text(PG_FUNCTION_ARGS);
-Datum superloglog_add_item_agg2_int(PG_FUNCTION_ARGS);
+Datum superloglog_add_item(PG_FUNCTION_ARGS);
+Datum superloglog_add_item_agg(PG_FUNCTION_ARGS);
+Datum superloglog_add_item_agg2(PG_FUNCTION_ARGS);
 
 Datum superloglog_get_estimate(PG_FUNCTION_ARGS);
 
@@ -60,170 +51,145 @@ Datum superloglog_send(PG_FUNCTION_ARGS);
 Datum superloglog_length(PG_FUNCTION_ARGS);
 
 Datum
-superloglog_add_item_text(PG_FUNCTION_ARGS)
+superloglog_add_item(PG_FUNCTION_ARGS)
 {
 
-    SuperLogLogCounter loglog;
-    text * item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
+    SuperLogLogCounter sloglog;
 
-      loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
-      
-      /* get the new item */
-      item = PG_GETARG_TEXT_P(1);
-    
-      /* in-place update works only if executed as aggregate */
-      superloglog_add_element_text(loglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "loglog counter must not be NULL");
+    /* requires the estimator to be already created */
+    if (PG_ARGISNULL(0))
+        elog(ERROR, "superloglog counter must not be NULL");
+
+    /* if the element is not NULL, add it to the estimator (i.e. skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+        Datum       element = PG_GETARG_DATUM(1);
+        int16       typlen;
+        bool        typbyval;
+        char        typalign;
+
+        /* estimator (we know it's not a NULL value) */
+        sloglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            superloglog_add_element(sloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            superloglog_add_element(sloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+
     }
-    
+
     PG_RETURN_VOID();
 
 }
 
 Datum
-superloglog_add_item_int(PG_FUNCTION_ARGS)
+superloglog_add_item_agg(PG_FUNCTION_ARGS)
 {
 
-    SuperLogLogCounter loglog;
-    int item;
-    
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if ((! PG_ARGISNULL(0)) && (! PG_ARGISNULL(1))) {
-
-        loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
-        
-        /* get the new item */
-        item = PG_GETARG_INT32(1);
-        
-        /* in-place update works only if executed as aggregate */
-        superloglog_add_element_int(loglog, item);
-      
-    } else if (PG_ARGISNULL(0)) {
-        elog(ERROR, "loglog counter must not be NULL");
-    }
-    
-    PG_RETURN_VOID();
-
-}
-
-Datum
-superloglog_add_item_agg_text(PG_FUNCTION_ARGS)
-{
-	
-    SuperLogLogCounter loglog;
-    text * item;
+    SuperLogLogCounter sloglog;
     float errorRate; /* required error rate */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      errorRate = PG_GETARG_FLOAT4(2);
-      
-      /* error rate between 0 and 1 (not 0) */
-      if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      loglog = superloglog_create(errorRate);
-    } else {
-      loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
+
+        errorRate = PG_GETARG_FLOAT4(2);
+
+        /* error rate between 0 and 1 (not 0) */
+        if ((errorRate <= 0) || (errorRate > 1))
+            elog(ERROR, "error rate has to be between 0 and 1");
+
+        sloglog = superloglog_create(errorRate);
+
+    } else { /* existing estimator */
+        sloglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    superloglog_add_element_text(loglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            superloglog_add_element(sloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            superloglog_add_element(sloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(loglog);
+    PG_RETURN_BYTEA_P(sloglog);
     
 }
 
 Datum
-superloglog_add_item_agg_int(PG_FUNCTION_ARGS)
+superloglog_add_item_agg2(PG_FUNCTION_ARGS)
 {
-    
-    SuperLogLogCounter loglog;
-    int item;
-    float errorRate; /* required error rate */
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      errorRate = PG_GETARG_FLOAT4(2);
-      
-      /* error rate between 0 and 1 (not 0) */
-      if ((errorRate <= 0) || (errorRate > 1)) {
-          elog(ERROR, "error rate has to be between 0 and 1");
-      }
-      
-      loglog = superloglog_create(errorRate);
-    } else {
-      loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    superloglog_add_element_int(loglog, item);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(loglog);
-    
-}
 
-Datum
-superloglog_add_item_agg2_text(PG_FUNCTION_ARGS)
-{
-    
-    SuperLogLogCounter loglog;
-    text * item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
-    if (PG_ARGISNULL(0)) {
-      loglog = superloglog_create(DEFAULT_ERROR);
-    } else {
-      loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
-    }
-      
-    /* get the new item */
-    item = PG_GETARG_TEXT_P(1);
-    
-    /* in-place update works only if executed as aggregate */
-    superloglog_add_element_text(loglog, VARDATA(item), VARSIZE(item) - VARHDRSZ);
-    
-    /* return the updated bytea */
-    PG_RETURN_BYTEA_P(loglog);
-    
-}
+    SuperLogLogCounter sloglog;
 
-Datum
-superloglog_add_item_agg2_int(PG_FUNCTION_ARGS)
-{
-    
-    SuperLogLogCounter loglog;
-    int item;
-  
-    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    /* info for anyelement */
+    Oid         element_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+    Datum       element = PG_GETARG_DATUM(1);
+    int16       typlen;
+    bool        typbyval;
+    char        typalign;
+
+    /* create a new estimator (with requested error rate) or reuse the existing one */
     if (PG_ARGISNULL(0)) {
-      loglog = superloglog_create(DEFAULT_ERROR);
-    } else {
-      loglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
+        sloglog = superloglog_create(DEFAULT_ERROR);
+    } else { /* existing estimator */
+        sloglog = (SuperLogLogCounter)PG_GETARG_BYTEA_P(0);
     }
-      
-    /* get the new item */
-    item = PG_GETARG_INT32(1);
-    
-    /* in-place update works only if executed as aggregate */
-    superloglog_add_element_int(loglog, item);
-    
+
+    /* add the item to the estimator (skip NULLs) */
+    if (! PG_ARGISNULL(1)) {
+
+        /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
+         * but if it turns out to have a noticeable impact it's possible to cache that
+         * between the calls (in the estimator). */
+        
+        /* get type information for the second parameter (anyelement item) */
+        get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+
+        /* if it's not a varlena type, just use the value directly */
+        if (typlen != -1) {
+            /* use the whole Datum, zero bytes make no difference anyway */
+            superloglog_add_element(sloglog, (char*)&element, sizeof(Datum));
+        } else {
+            /* in-place update works only if executed as aggregate */
+            superloglog_add_element(sloglog, VARDATA(element), VARSIZE(element) - VARHDRSZ);
+        }
+    }
+
     /* return the updated bytea */
-    PG_RETURN_BYTEA_P(loglog);
+    PG_RETURN_BYTEA_P(sloglog);
     
 }
 

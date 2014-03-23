@@ -16,9 +16,6 @@ int superloglog_get_min_bit(const unsigned char * buffer, int byteFrom, int byte
 int superloglog_get_r(const unsigned char * buffer, int byteFrom, int bytes);
 int superloglog_estimate(SuperLogLogCounter loglog);
 
-void superloglog_hash_text(unsigned char * buffer, const char * element, int length);
-void superloglog_hash_int(unsigned char * buffer, int element);
-
 void superloglog_add_hash(SuperLogLogCounter loglog, const unsigned char * hash);
 void superloglog_reset_internal(SuperLogLogCounter loglog);
 
@@ -104,37 +101,15 @@ int superloglog_estimate(SuperLogLogCounter loglog) {
 
 }
 
-/* Computes an MD5 hash of the input value (with a given length). */
-void superloglog_hash_text(unsigned char * buffer, const char * element, int length) {
-    pg_md5_binary(element, length, buffer);
-}
-
-/* Computes an MD5 hash of the input value (with a given length). */
-void superloglog_hash_int(unsigned char * buffer, int element) {
-    pg_md5_binary(&element, sizeof(int), buffer);
-}
-
-void superloglog_add_element_text(SuperLogLogCounter loglog, const char * element, int elen) {
+void superloglog_add_element(SuperLogLogCounter loglog, const char * element, int elen) {
   
     /* get the hash */
     unsigned char hash[HASH_LENGTH];
     
-    /* compute the hash using the salt */
-    superloglog_hash_text(hash, element, elen);
-    
+    /* compute the hash */
+    pg_md5_binary(element, elen, hash);
+
     superloglog_add_hash(loglog, hash);
-  
-}
-
-void superloglog_add_element_int(SuperLogLogCounter loglog, int element) {
-
-    /* allocate buffer (for the hash result) */
-    unsigned char buffer[HASH_LENGTH];
-    
-    /* get the hash */
-    superloglog_hash_int(buffer, element);
-
-    superloglog_add_hash(loglog, buffer);
   
 }
 

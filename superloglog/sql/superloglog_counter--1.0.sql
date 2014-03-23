@@ -4,23 +4,18 @@
 CREATE TYPE superloglog_estimator;
 
 -- get estimator size for the requested error rate
-CREATE FUNCTION superloglog_size(errorRate real) RETURNS int
+CREATE FUNCTION superloglog_size(error_rate real) RETURNS int
      AS 'MODULE_PATHNAME', 'superloglog_size'
      LANGUAGE C;
 
 -- creates a new LogLog estimator with a given a desired error rate limit
-CREATE FUNCTION superloglog_init(errorRate real) RETURNS superloglog_estimator
+CREATE FUNCTION superloglog_init(error_rate real) RETURNS superloglog_estimator
      AS 'MODULE_PATHNAME', 'superloglog_init'
      LANGUAGE C;
 
 -- add an item to the estimator
-CREATE FUNCTION superloglog_add_item(counter superloglog_estimator, item text) RETURNS void
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_text'
-     LANGUAGE C;
-
--- add an item to the estimator
-CREATE FUNCTION superloglog_add_item(counter superloglog_estimator, item int) RETURNS void
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_int'
+CREATE FUNCTION superloglog_add_item(counter superloglog_estimator, item anyelement) RETURNS void
+     AS 'MODULE_PATHNAME', 'superloglog_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
@@ -40,20 +35,12 @@ CREATE FUNCTION length(counter superloglog_estimator) RETURNS int
 
 /* functions for aggregate functions */
 
-CREATE FUNCTION superloglog_add_item_agg(counter superloglog_estimator, item text, errorRate real) RETURNS superloglog_estimator
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg_text'
+CREATE FUNCTION superloglog_add_item_agg(counter superloglog_estimator, item anyelement, error_rate real) RETURNS superloglog_estimator
+     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg'
      LANGUAGE C;
 
-CREATE FUNCTION superloglog_add_item_agg(counter superloglog_estimator, item int, errorRate real) RETURNS superloglog_estimator
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg_int'
-     LANGUAGE C;
-
-CREATE FUNCTION superloglog_add_item_agg2(counter superloglog_estimator, text) RETURNS superloglog_estimator
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg2_text'
-     LANGUAGE C;
-
-CREATE FUNCTION superloglog_add_item_agg2(counter superloglog_estimator, int) RETURNS superloglog_estimator
-     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg2_int'
+CREATE FUNCTION superloglog_add_item_agg2(counter superloglog_estimator, item anyelement) RETURNS superloglog_estimator
+     AS 'MODULE_PATHNAME', 'superloglog_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
@@ -75,28 +62,14 @@ CREATE TYPE superloglog_estimator (
 
 -- LogLog based aggregate
 -- items / error rate / number of items
-CREATE AGGREGATE superloglog_distinct(text, real)
+CREATE AGGREGATE superloglog_distinct(item anyelement, error_rate real)
 (
     sfunc = superloglog_add_item_agg,
     stype = superloglog_estimator,
     finalfunc = superloglog_get_estimate
 );
 
-CREATE AGGREGATE superloglog_distinct(int, real)
-(
-    sfunc = superloglog_add_item_agg,
-    stype = superloglog_estimator,
-    finalfunc = superloglog_get_estimate
-);
-
-CREATE AGGREGATE superloglog_distinct(text)
-(
-    sfunc = superloglog_add_item_agg2,
-    stype = superloglog_estimator,
-    finalfunc = superloglog_get_estimate
-);
-
-CREATE AGGREGATE superloglog_distinct(int)
+CREATE AGGREGATE superloglog_distinct(item anyelement)
 (
     sfunc = superloglog_add_item_agg2,
     stype = superloglog_estimator,

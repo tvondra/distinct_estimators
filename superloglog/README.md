@@ -17,8 +17,7 @@ The extension provides the following elements
     * `superloglog_size(error_rate real)`
     * `superloglog_init(error_rate real)`
 
-    * `superloglog_add_item(counter superloglog_estimator, item text)`
-    * `superloglog_add_item(counter superloglog_estimator, item int)`
+    * `superloglog_add_item(counter superloglog_estimator, item anyelement)`
 
     * `superloglog_get_estimate(counter superloglog_estimator)`
     * `superloglog_reset(counter superloglog_estimator)`
@@ -30,11 +29,8 @@ The extension provides the following elements
 
 * aggregate functions 
 
-    * `superloglog_distinct(text, real)`
-    * `superloglog_distinct(text)`
-
-    * `superloglog_distinct(int, real)`
-    * `superloglog_distinct(int)`
+    * `superloglog_distinct(anyelement, real)`
+    * `superloglog_distinct(anyelement)`
 
   where the 1-parameter version uses default error rate 2.5%. That's
   quite generous and it may result in unnecessarily large estimators, so
