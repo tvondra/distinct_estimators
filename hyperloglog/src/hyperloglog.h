@@ -12,6 +12,23 @@
  * worth the effort and it works with 64bit hashes too which is a good thing
  * if you need to work with large cardinalities. So I'll keep it this for now.
  * 
+ * Computing the number of bits based on ndistinct seems rather simple - if
+ * 'b' is the number of bits, the estimator should handle 2^(2^b) distinct
+ * values. So with 5 bits, each bin can store values between 0 and 31.
+ * Apparently 31 is used as a special case 'value too high' so, there are
+ * only 30 values, so the bins count ~2^30 values.
+ * 
+ * By reversing this, we can derive number of bits necessary.
+ * 
+ * 4 bits -> 2^14 (~16k)
+ * 5 bits -> 2^30 (~1e9)
+ * 6 bits -> 2^62 (~4e18)
+ * 7 bits -> 2^126 ...
+ * 
+ * So 4 bits seem to low and 6 bits unnecessarily high, and 5 bits is pretty
+ * much the best default option.
+ * 
+ * 
  * TODO Implement merging two estimators (just as with adaptive estimator).
  */
 typedef struct HyperLogLogCounterData {
