@@ -18,7 +18,7 @@ typedef struct LogLogCounterData {
     int32 length;
     
     /* number of the slots (and addressing bits) */
-	int bits;
+    int bits;
     int m; /* m = 2^bits*/
     
     /* bitmap used to keep the list of items (uses the very same trick as in
