@@ -177,7 +177,7 @@ hyperloglog_add_item_agg2(PG_FUNCTION_ARGS)
     }
 
     /* add the item to the estimator (skip NULLs) */
-    if (! PG_ARGISNULL(0)) {
+    if (! PG_ARGISNULL(1)) {
 
         /* TODO The requests for type info shouldn't be a problem (thanks to lsyscache),
          * but if it turns out to have a noticeable impact it's possible to cache that
