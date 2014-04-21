@@ -93,7 +93,7 @@ void ac_reset(AdaptiveCounter ac) {
 }
 
 /* creates a separate copy of the counter */
-AdaptiveCounter ac_create_copy(AdaptiveCounter src) {
+AdaptiveCounter ac_copy(AdaptiveCounter src) {
 
     AdaptiveCounter dest = (AdaptiveCounter)palloc(VARSIZE(src));
     
@@ -258,7 +258,7 @@ void ac_add_item(AdaptiveCounter ac, const char * element, int elen) {
  * The counters have to be 'the same' i.e. the basic parameters (level, length, itemSize
  * and error rate) need to be equal.
  */
-AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src) {
+AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src, bool inplace) {
 
     AdaptiveCounter result;
     int i = 0;
@@ -267,7 +267,10 @@ AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src) {
     * higher (>=) level and lower item size (<=) at the same time */
     if ((dest->level < src->level) ||
         ((dest->level == src->level) && (dest->itemSize > src->itemSize))) {
-        return ac_merge(src, dest);
+        /* FIXME This is obviously wrong - the user expects the data to be copied to 'dest',
+         *       but we're switching the parameters (so it'll be merged into src). We need
+         *       to swap the data, not the parameters. */
+        return ac_merge(src, dest, inplace);
     }
   
     /* it's possible to have (dest->level > src->level) and
@@ -296,7 +299,10 @@ AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src) {
     }
 
     /* allocate space for the destination counter (mergeable -> same size) */
-    result = ac_create_copy(dest);
+    if (inplace)
+        result = dest;
+    else
+        result = ac_copy(dest);
   
     /* copy the items (from the src counter, the one with the lower level) */
     for (i = 0; i < src->items; i++) {

@@ -13,6 +13,16 @@ CREATE FUNCTION probabilistic_init(nbytes int, nsalts int) RETURNS probabilistic
      AS 'MODULE_PATHNAME', 'probabilistic_init'
      LANGUAGE C;
 
+-- merges the estimators into a new copy
+CREATE FUNCTION probabilistic_merge(estimator1 probabilistic_estimator, estimator2 probabilistic_estimator) RETURNS probabilistic_estimator
+     AS 'MODULE_PATHNAME', 'probabilistic_merge_simple'
+     LANGUAGE C;
+
+-- merges the second estimator into the first one
+CREATE FUNCTION probabilistic_merge_agg(estimator1 probabilistic_estimator, estimator2 probabilistic_estimator) RETURNS probabilistic_estimator
+     AS 'MODULE_PATHNAME', 'probabilistic_merge_agg'
+     LANGUAGE C;
+
 -- add an item to the estimator
 CREATE FUNCTION probabilistic_add_item(counter probabilistic_estimator, item anyelement) RETURNS void
      AS 'MODULE_PATHNAME', 'probabilistic_add_item'
@@ -72,4 +82,38 @@ CREATE AGGREGATE probabilistic_distinct(anyelement)
     sfunc = probabilistic_add_item_agg2,
     stype = probabilistic_estimator,
     finalfunc = probabilistic_get_estimate
+);
+
+-- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
+CREATE AGGREGATE probabilistic_accum(item anyelement, nbytes int, nsalts int)
+(
+    sfunc = probabilistic_add_item_agg,
+    stype = probabilistic_estimator
+);
+
+CREATE AGGREGATE probabilistic_accum(item anyelement)
+(
+    sfunc = probabilistic_add_item_agg2,
+    stype = probabilistic_estimator
+);
+
+-- merges all the counters into just a single one (e.g. after running probabilistic_accum)
+CREATE AGGREGATE probabilistic_merge(estimator probabilistic_estimator)
+(
+    sfunc = probabilistic_merge_agg,
+    stype = probabilistic_estimator
+);
+
+-- evaluates the estimate (for an estimator)
+CREATE OPERATOR # (
+    PROCEDURE = probabilistic_get_estimate,
+    RIGHTARG = probabilistic_estimator
+);
+
+-- merges two estimators into a new one
+CREATE OPERATOR || (
+    PROCEDURE = probabilistic_merge,
+    LEFTARG  = probabilistic_estimator,
+    RIGHTARG = probabilistic_estimator,
+    COMMUTATOR = ||
 );

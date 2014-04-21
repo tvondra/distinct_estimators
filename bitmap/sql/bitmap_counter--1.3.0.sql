@@ -85,3 +85,22 @@ CREATE AGGREGATE bitmap_distinct(anyelement)
     stype = bitmap_estimator,
     finalfunc = bitmap_get_estimate
 );
+
+-- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
+CREATE AGGREGATE bitmap_accum(item anyelement, error_rate real, ndistinct int)
+(
+    sfunc = bitmap_add_item_agg,
+    stype = bitmap_estimator
+);
+
+CREATE AGGREGATE bitmap_accum(item anyelement)
+(
+    sfunc = bitmap_add_item_agg2,
+    stype = bitmap_estimator
+);
+
+-- evaluates the estimate (for an estimator)
+CREATE OPERATOR # (
+    PROCEDURE = bitmap_get_estimate,
+    RIGHTARG = bitmap_estimator
+);

@@ -182,3 +182,40 @@ void pc_reset(ProbabilisticCounter pc) {
         pc->bitmap[i] = 0;
     }
 }
+
+ProbabilisticCounter pc_copy(ProbabilisticCounter counter) {
+
+    size_t length = counter->length;
+    ProbabilisticCounter copy = (ProbabilisticCounter)palloc(length);
+
+    memcpy(copy, counter, length);
+
+    return copy;
+
+}
+
+ProbabilisticCounter pc_merge(ProbabilisticCounter counter1, ProbabilisticCounter counter2, bool inplace) {
+
+    int i;
+    ProbabilisticCounter result;
+
+    if ((counter1->length != counter2->length) ||
+        (counter1->nbytes != counter2->nbytes) ||
+        (counter1->nsalts != counter2->nsalts)) {
+
+        elog(ERROR, "mismatch of Probabilistic estimator parameters - can't merge");
+
+    }
+
+    if (inplace)
+        result = counter1;
+    else
+        result = pc_copy(counter1);
+
+    for (i = 0; i < result->nsalts * HASH_LENGTH; i++) {
+        result->bitmap[i] |= counter2->bitmap[i];
+    }
+
+    return result;
+
+}

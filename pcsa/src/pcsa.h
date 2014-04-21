@@ -46,3 +46,6 @@ void pcsa_add_element(PCSACounter pcsa, const char * element, int elen);
 int pcsa_estimate(PCSACounter pcsa);
 
 void pcsa_reset_internal(PCSACounter pcsa);
+
+PCSACounter pcsa_copy(PCSACounter counter);
+PCSACounter pcsa_merge(PCSACounter counter1, PCSACounter counter2, bool inplace);

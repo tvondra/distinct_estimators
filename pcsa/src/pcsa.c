@@ -149,3 +149,40 @@ void pcsa_reset_internal(PCSACounter pcsa) {
     }
   
 }
+
+PCSACounter pcsa_copy(PCSACounter counter) {
+
+    size_t length = counter->length;
+    PCSACounter copy = (PCSACounter)palloc(length);
+
+    memcpy(copy, counter, length);
+
+    return copy;
+
+}
+
+PCSACounter pcsa_merge(PCSACounter counter1, PCSACounter counter2, bool inplace) {
+
+    int i;
+    PCSACounter result;
+
+    if ((counter1->length != counter2->length) ||
+        (counter1->nmaps  != counter2->nmaps) ||
+        (counter1->keysize != counter2->keysize)) {
+
+        elog(ERROR, "mismatch of PCSA estimator parameters - can't merge");
+
+    }
+
+    if (inplace)
+        result = counter1;
+    else
+        result = pcsa_copy(counter1);
+
+    for (i = 0; i < (HASH_LENGTH - result->keysize) * result->nmaps; i++) {
+        result->bitmap[i] |= counter2->bitmap[i];
+    }
+
+    return result;
+
+}

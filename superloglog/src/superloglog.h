@@ -41,3 +41,6 @@ void superloglog_add_element(SuperLogLogCounter sloglog, const char * element, i
 int superloglog_estimate(SuperLogLogCounter loglog);
 
 void superloglog_reset_internal(SuperLogLogCounter loglog);
+
+SuperLogLogCounter superloglog_copy(SuperLogLogCounter counter);
+SuperLogLogCounter superloglog_merge(SuperLogLogCounter counter1, SuperLogLogCounter counter2, bool inplace);

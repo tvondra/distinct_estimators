@@ -26,6 +26,8 @@ PG_FUNCTION_INFO_V1(adaptive_add_item);
 PG_FUNCTION_INFO_V1(adaptive_add_item_agg);
 PG_FUNCTION_INFO_V1(adaptive_add_item_agg2);
 
+PG_FUNCTION_INFO_V1(adaptive_merge_simple);
+PG_FUNCTION_INFO_V1(adaptive_merge_agg);
 PG_FUNCTION_INFO_V1(adaptive_get_estimate);
 PG_FUNCTION_INFO_V1(adaptive_get_ndistinct);
 PG_FUNCTION_INFO_V1(adaptive_size);
@@ -33,7 +35,6 @@ PG_FUNCTION_INFO_V1(adaptive_init);
 PG_FUNCTION_INFO_V1(adaptive_get_error);
 PG_FUNCTION_INFO_V1(adaptive_get_item_size);
 PG_FUNCTION_INFO_V1(adaptive_reset);
-PG_FUNCTION_INFO_V1(adaptive_merge);
 PG_FUNCTION_INFO_V1(adaptive_in);
 PG_FUNCTION_INFO_V1(adaptive_out);
 PG_FUNCTION_INFO_V1(adaptive_rect);
@@ -44,6 +45,8 @@ Datum adaptive_add_item(PG_FUNCTION_ARGS);
 Datum adaptive_add_item_agg(PG_FUNCTION_ARGS);
 Datum adaptive_add_item_agg2(PG_FUNCTION_ARGS);
 
+Datum adaptive_merge_simple(PG_FUNCTION_ARGS);
+Datum adaptive_merge_agg(PG_FUNCTION_ARGS);
 Datum adaptive_get_estimate(PG_FUNCTION_ARGS);
 Datum adaptive_get_ndistinct(PG_FUNCTION_ARGS);
 Datum adaptive_size(PG_FUNCTION_ARGS);
@@ -51,7 +54,6 @@ Datum adaptive_init(PG_FUNCTION_ARGS);
 Datum adaptive_get_error(PG_FUNCTION_ARGS);
 Datum adaptive_get_item_size(PG_FUNCTION_ARGS);
 Datum adaptive_reset(PG_FUNCTION_ARGS);
-Datum adaptive_merge(PG_FUNCTION_ARGS);
 Datum adaptive_in(PG_FUNCTION_ARGS);
 Datum adaptive_out(PG_FUNCTION_ARGS);
 Datum adaptive_recv(PG_FUNCTION_ARGS);
@@ -217,6 +219,54 @@ adaptive_add_item_agg2(PG_FUNCTION_ARGS)
 }
 
 Datum
+adaptive_merge_simple(PG_FUNCTION_ARGS)
+{
+
+    AdaptiveCounter counter1 = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
+    AdaptiveCounter counter2 = (AdaptiveCounter)PG_GETARG_BYTEA_P(1);
+
+    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    if (PG_ARGISNULL(0) && PG_ARGISNULL(1)) {
+        PG_RETURN_NULL();
+    } else if (PG_ARGISNULL(0)) {
+        PG_RETURN_BYTEA_P(ac_copy(counter2));
+    } else if (PG_ARGISNULL(1)) {
+        PG_RETURN_BYTEA_P(ac_copy(counter1));
+    } else {
+        PG_RETURN_BYTEA_P(ac_merge(counter1, counter2, false));
+    }
+
+}
+
+Datum
+adaptive_merge_agg(PG_FUNCTION_ARGS)
+{
+
+    AdaptiveCounter counter1;
+    AdaptiveCounter counter2 = (AdaptiveCounter)PG_GETARG_BYTEA_P(1);
+
+    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    if (PG_ARGISNULL(0)) {
+
+        /* just copy the second estimator into the first one */
+        counter1 = ac_copy(counter2);
+
+    } else {
+
+        /* ok, we already have the estimator - merge the second one into it */
+        counter1 = (AdaptiveCounter)PG_GETARG_BYTEA_P(0);
+
+        /* perform the merge (in place) */
+        counter1 = ac_merge(counter1, counter2, true);
+
+    }
+
+    /* return the updated bytea */
+    PG_RETURN_BYTEA_P(counter1);
+
+}
+
+Datum
 adaptive_get_estimate(PG_FUNCTION_ARGS)
 {
 
@@ -326,27 +376,6 @@ adaptive_reset(PG_FUNCTION_ARGS)
 	ac_reset(((AdaptiveCounter)PG_GETARG_BYTEA_P(0)));
 	PG_RETURN_VOID();
 }
-
-Datum
-adaptive_merge(PG_FUNCTION_ARGS)
-{
-
-	if (PG_ARGISNULL(0) && PG_ARGISNULL(1)) {
-		PG_RETURN_NULL();
-	} else if (PG_ARGISNULL(0)) {
-		PG_RETURN_BYTEA_P(ac_create_copy((AdaptiveCounter)PG_GETARG_BYTEA_P(1)));
-	} else if (PG_ARGISNULL(1)) {
-        PG_RETURN_BYTEA_P(ac_create_copy((AdaptiveCounter)PG_GETARG_BYTEA_P(0)));
-	}
-
-	PG_RETURN_BYTEA_P(
-        ac_merge(
-            (AdaptiveCounter)PG_GETARG_BYTEA_P(0),
-            (AdaptiveCounter)PG_GETARG_BYTEA_P(1)
-        )
-    );
-}
-
 
 /*
  *		byteain			- converts from printable representation of byte array

@@ -14,6 +14,16 @@ CREATE FUNCTION pcsa_init(nbitmaps int, keysize int) RETURNS pcsa_estimator
      AS 'MODULE_PATHNAME', 'pcsa_init'
      LANGUAGE C;
 
+-- merges the second estimator into the first one
+CREATE FUNCTION pcsa_merge(estimator1 pcsa_estimator, estimator2 pcsa_estimator) RETURNS pcsa_estimator
+     AS 'MODULE_PATHNAME', 'pcsa_merge_simple'
+     LANGUAGE C;
+
+-- merges the second estimator into the first one
+CREATE FUNCTION pcsa_merge_agg(estimator1 pcsa_estimator, estimator2 pcsa_estimator) RETURNS pcsa_estimator
+     AS 'MODULE_PATHNAME', 'pcsa_merge_agg'
+     LANGUAGE C;
+
 -- add an item to the estimator
 CREATE FUNCTION pcsa_add_item(counter pcsa_estimator, item anyelement) RETURNS void
      AS 'MODULE_PATHNAME', 'pcsa_add_item'
@@ -75,4 +85,38 @@ CREATE AGGREGATE pcsa_distinct(anyelement)
     sfunc = pcsa_add_item_agg2,
     stype = pcsa_estimator,
     finalfunc = pcsa_get_estimate
+);
+
+-- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
+CREATE AGGREGATE pcsa_accum(item anyelement, nbitmaps int, keysize int)
+(
+    sfunc = pcsa_add_item_agg,
+    stype = pcsa_estimator
+);
+
+CREATE AGGREGATE pcsa_accum(item anyelement)
+(
+    sfunc = pcsa_add_item_agg2,
+    stype = pcsa_estimator
+);
+
+-- merges all the counters into just a single one (e.g. after running pcsa_accum)
+CREATE AGGREGATE pcsa_merge(estimator pcsa_estimator)
+(
+    sfunc = pcsa_merge_agg,
+    stype = pcsa_estimator
+);
+
+-- evaluates the estimate (for an estimator)
+CREATE OPERATOR # (
+    PROCEDURE = pcsa_get_estimate,
+    RIGHTARG = pcsa_estimator
+);
+
+-- merges two estimators into a new one
+CREATE OPERATOR || (
+    PROCEDURE = pcsa_merge,
+    LEFTARG  = pcsa_estimator,
+    RIGHTARG = pcsa_estimator,
+    COMMUTATOR = ||
 );

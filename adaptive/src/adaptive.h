@@ -46,7 +46,7 @@ AdaptiveCounter ac_init(float error, int ndistinct);
 void ac_reset(AdaptiveCounter ac);
 
 /* Copy the data to a completely new */
-AdaptiveCounter ac_create_copy(AdaptiveCounter src);
+AdaptiveCounter ac_copy(AdaptiveCounter src);
 
 /* add element into the counter */
 void ac_add_item(AdaptiveCounter ac, const char * element, int elen);
@@ -58,4 +58,4 @@ void ac_print_info(AdaptiveCounter ac);
 int ac_estimate(AdaptiveCounter ac);
 
 /* merge two adaptive counters */
-AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src);
+AdaptiveCounter ac_merge(AdaptiveCounter dest, AdaptiveCounter src, bool inplace);

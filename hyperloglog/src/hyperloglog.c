@@ -9,7 +9,7 @@
 
 #include "hyperloglog.h"
 
-/* we're using md5, which produceds a 16B value */
+/* we're using md5, which produces 16B (128-bit) values */
 #define HASH_LENGTH 16
 
 /* Alpha constants, for various numbers of 'b'.
@@ -28,12 +28,18 @@ int hyperloglog_estimate(HyperLogLogCounter hloglog);
 void hyperloglog_add_hash(HyperLogLogCounter hloglog, const unsigned char * hash);
 void hyperloglog_reset_internal(HyperLogLogCounter hloglog);
 
-/*
- * Allocate bitmap with a given length (to store the given number of bitmaps)
+/* Allocate HLL estimator that can handle the desired cartinality and precision.
  *
  * TODO The ndistinct is not currently used to determine size of the bin (number of
  * bits used to store the counter) - it's always 1B=8bits, for now, to make it
- * easier to work with.
+ * easier to work with. See the header file (hyperloglog.h) for discussion of this.
+ * 
+ * parameters:
+ *      ndistinct   - cardinality the estimator should handle
+ *      error       - requested error rate (0 - 1, where 0 means 'exact')
+ * 
+ * returns:
+ *      instance of HLL estimator (throws ERROR in case of failure)
  */
 HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
 
@@ -43,13 +49,15 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
     /* the bitmap is allocated as part of this memory block (-1 as one bin is already in) */
     HyperLogLogCounter p = (HyperLogLogCounter)palloc(length);
 
+    /* target error rate needs to be between 0 and 1 */
     if (error <= 0 || error >= 1)
         elog(ERROR, "invalid error rate requested - only values in (0,1) allowed");
 
-    /* swhat is the minimum number of bins to achieve the requested error rate? */
+    /* what is the minimum number of bins to achieve the requested error rate? we'll
+     * increase this to the nearest power of two later */
     m = 1.04 / (error * error);
 
-    /* how many bits do we need to index the bins (nearest power of two) */
+    /* so how many bits do we need to index the bins (nearest power of two) */
     p->b = (int)ceil(log2(m));
 
     /* TODO Is there actually a good reason to limit the number precision to 16 bits? We're
@@ -60,12 +68,14 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
     if (p->b < 4)   /* we want at least 2^4 (=16) bins */
         p->b = 4;
     else if (p->b > 16)
-        elog(ERROR, "number of bits in HyperLogLog exceeds 16 (requested %d)", p->b);
+        elog(ERROR, "number of index bits exceeds 16 (requested %d)", p->b);
 
-    p->m = (int)pow(2, p->b);
+    p->m= (int)pow(2, p->b);
     memset(p->data, 0, p->m);
 
-    /* use 1B for a bin by default */
+    elog(WARNING, "m = %d", p->m);
+    
+    /* use 1B for a counter by default */
     p->binbits = 8;
 
     SET_VARSIZE(p, length);
@@ -73,6 +83,57 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
     return p;
 
 }
+
+/* Performs a simple 'copy' of the counter, i.e. allocates a new counter and copies
+ * the state from the supplied one. */
+HyperLogLogCounter hyperloglog_copy(HyperLogLogCounter counter) {
+    
+    size_t length = VARSIZE(counter);
+    HyperLogLogCounter copy = (HyperLogLogCounter)palloc(length);
+    
+    memcpy(copy, counter, length);
+    
+    return copy;
+
+}
+
+/* Merges the two estimators. Either modifies the first estimator in place (inplace=true),
+ * or creates a new copy and returns that (inplace=false). Modification in place is very
+ * handy in aggregates, when we really want to modify the aggregate state in place.
+ * 
+ * Mering is only possible if the counters share the same parameters (number of bins,
+ * bin size, ...). If the counters don't match, this throws an ERROR. */
+HyperLogLogCounter hyperloglog_merge(HyperLogLogCounter counter1, HyperLogLogCounter counter2, bool inplace) {
+
+    int i;
+    HyperLogLogCounter result;
+
+    /* check compatibility first */
+    if (counter1->length != counter2->length)
+        elog(ERROR, "sizes of estimators differs (%d != %d)", counter1->length, counter2->length);
+    else if (counter1->b != counter2->b)
+        elog(ERROR, "index size of estimators differs (%d != %d)", counter1->b, counter2->b);
+    else if (counter1->m != counter2->m)
+        elog(ERROR, "bin count of estimators differs (%d != %d)", counter1->m, counter2->m);
+    else if (counter1->binbits != counter2->binbits)
+        elog(ERROR, "bin size of estimators differs (%d != %d)", counter1->binbits, counter2->binbits);
+
+    /* shall we create a new estimator, or merge into counter1 */
+    if (! inplace)
+        result = hyperloglog_copy(counter1);
+    else
+        result = counter1;
+
+    elog(WARNING, "merge m = %d", result->m);
+
+    /* copy the state of the estimator */
+    for (i = 0; i < result->m; i++)
+        result->data[i] = (result->data[i] > counter2->data[i]) ? result->data[i] : counter2->data[i];
+
+    return result;
+
+}
+
 
 /* Computes size of the structure, depending on the requested error rate.
  * 

@@ -57,6 +57,9 @@ typedef HyperLogLogCounterData * HyperLogLogCounter;
 HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error);
 int hyperloglog_get_size(int64 ndistinct, float error);
 
+HyperLogLogCounter hyperloglog_copy(HyperLogLogCounter counter);
+HyperLogLogCounter hyperloglog_merge(HyperLogLogCounter counter1, HyperLogLogCounter counter2, bool inplace);
+
 /* add element existence */
 void hyperloglog_add_element(HyperLogLogCounter hloglog, const char * element, int elen);
 

@@ -41,3 +41,6 @@ void loglog_add_element(LogLogCounter loglog, const char * element, int elen);
 int loglog_estimate(LogLogCounter loglog);
 
 void loglog_reset_internal(LogLogCounter loglog);
+
+LogLogCounter loglog_copy(LogLogCounter counter);
+LogLogCounter loglog_merge(LogLogCounter counter1, LogLogCounter counter2, bool inplace);

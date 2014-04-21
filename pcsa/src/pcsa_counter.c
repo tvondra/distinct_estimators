@@ -29,6 +29,8 @@ PG_FUNCTION_INFO_V1(pcsa_add_item);
 PG_FUNCTION_INFO_V1(pcsa_add_item_agg);
 PG_FUNCTION_INFO_V1(pcsa_add_item_agg2);
 
+PG_FUNCTION_INFO_V1(pcsa_merge_agg);
+PG_FUNCTION_INFO_V1(pcsa_merge_simple);
 PG_FUNCTION_INFO_V1(pcsa_get_estimate);
 PG_FUNCTION_INFO_V1(pcsa_size);
 PG_FUNCTION_INFO_V1(pcsa_init);
@@ -43,6 +45,8 @@ Datum pcsa_add_item(PG_FUNCTION_ARGS);
 Datum pcsa_add_item_agg(PG_FUNCTION_ARGS);
 Datum pcsa_add_item_agg2(PG_FUNCTION_ARGS);
 
+Datum pcsa_merge_agg(PG_FUNCTION_ARGS);
+Datum pcsa_merge_simple(PG_FUNCTION_ARGS);
 Datum pcsa_get_estimate(PG_FUNCTION_ARGS);
 Datum pcsa_size(PG_FUNCTION_ARGS);
 Datum pcsa_init(PG_FUNCTION_ARGS);
@@ -208,6 +212,54 @@ pcsa_add_item_agg2(PG_FUNCTION_ARGS)
 
     /* return the updated bytea */
     PG_RETURN_BYTEA_P(pcsa);
+}
+
+Datum
+pcsa_merge_simple(PG_FUNCTION_ARGS)
+{
+
+    PCSACounter counter1 = (PCSACounter)PG_GETARG_BYTEA_P(0);
+    PCSACounter counter2 = (PCSACounter)PG_GETARG_BYTEA_P(1);
+
+    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    if (PG_ARGISNULL(0) && PG_ARGISNULL(1)) {
+        PG_RETURN_NULL();
+    } else if (PG_ARGISNULL(0)) {
+        PG_RETURN_BYTEA_P(pcsa_copy(counter2));
+    } else if (PG_ARGISNULL(1)) {
+        PG_RETURN_BYTEA_P(pcsa_copy(counter1));
+    } else {
+        PG_RETURN_BYTEA_P(pcsa_merge(counter1, counter2, false));
+    }
+
+}
+
+Datum
+pcsa_merge_agg(PG_FUNCTION_ARGS)
+{
+
+    PCSACounter counter1;
+    PCSACounter counter2 = (PCSACounter)PG_GETARG_BYTEA_P(1);
+
+    /* is the counter created (if not, create it - error 1%, 10mil items) */
+    if (PG_ARGISNULL(0)) {
+
+        /* just copy the second estimator into the first one */
+        counter1 = pcsa_copy(counter2);
+
+    } else {
+
+        /* ok, we already have the estimator - merge the second one into it */
+        counter1 = (PCSACounter)PG_GETARG_BYTEA_P(0);
+
+        /* perform the merge (in place) */
+        counter1 = pcsa_merge(counter1, counter2, true);
+
+    }
+
+    /* return the updated bytea */
+    PG_RETURN_BYTEA_P(counter1);
+
 }
 
 Datum

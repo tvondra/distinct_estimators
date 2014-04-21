@@ -39,3 +39,6 @@ void pc_print_info(ProbabilisticCounter pc);
 int pc_estimate(ProbabilisticCounter pc);
 
 void pc_reset(ProbabilisticCounter pc);
+
+ProbabilisticCounter pc_copy(ProbabilisticCounter counter);
+ProbabilisticCounter pc_merge(ProbabilisticCounter counter1, ProbabilisticCounter counter2, bool inplace);

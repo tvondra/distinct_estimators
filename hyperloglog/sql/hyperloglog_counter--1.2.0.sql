@@ -14,6 +14,16 @@ CREATE FUNCTION hyperloglog_init(error_rate real) RETURNS hyperloglog_estimator
      AS 'MODULE_PATHNAME', 'hyperloglog_init'
      LANGUAGE C;
 
+-- merges the second estimator into the first one
+CREATE FUNCTION hyperloglog_merge(estimator1 hyperloglog_estimator, estimator2 hyperloglog_estimator) RETURNS hyperloglog_estimator
+     AS 'MODULE_PATHNAME', 'hyperloglog_merge_simple'
+     LANGUAGE C;
+
+-- merges the second estimator into the first one
+CREATE FUNCTION hyperloglog_merge_agg(estimator1 hyperloglog_estimator, estimator2 hyperloglog_estimator) RETURNS hyperloglog_estimator
+     AS 'MODULE_PATHNAME', 'hyperloglog_merge_agg'
+     LANGUAGE C;
+
 -- add an item to the estimator
 CREATE FUNCTION hyperloglog_add_item(counter hyperloglog_estimator, item anyelement) RETURNS void
      AS 'MODULE_PATHNAME', 'hyperloglog_add_item'
@@ -75,4 +85,38 @@ CREATE AGGREGATE hyperloglog_distinct(anyelement)
     sfunc = hyperloglog_add_item_agg2,
     stype = hyperloglog_estimator,
     finalfunc = hyperloglog_get_estimate
+);
+
+-- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
+CREATE AGGREGATE hyperloglog_accum(item anyelement, error_rate real)
+(
+    sfunc = hyperloglog_add_item_agg,
+    stype = hyperloglog_estimator
+);
+
+CREATE AGGREGATE hyperloglog_accum(item anyelement)
+(
+    sfunc = hyperloglog_add_item_agg2,
+    stype = hyperloglog_estimator
+);
+
+-- merges all the counters into just a single one (e.g. after running hyperloglog_accum)
+CREATE AGGREGATE hyperloglog_merge(estimator hyperloglog_estimator)
+(
+    sfunc = hyperloglog_merge_agg,
+    stype = hyperloglog_estimator
+);
+
+-- evaluates the estimate (for an estimator)
+CREATE OPERATOR # (
+    PROCEDURE = hyperloglog_get_estimate,
+    RIGHTARG = hyperloglog_estimator
+);
+
+-- merges two estimators into a new one
+CREATE OPERATOR || (
+    PROCEDURE = hyperloglog_merge,
+    LEFTARG  = hyperloglog_estimator,
+    RIGHTARG = hyperloglog_estimator,
+    COMMUTATOR = ||
 );

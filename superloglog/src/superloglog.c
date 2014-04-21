@@ -159,3 +159,49 @@ int char_comparator(const void * a, const void * b) {
     else
         return 0;
 }
+
+/* Performs a simple 'copy' of the counter, i.e. allocates a new counter and copies
+ * the state from the supplied one. */
+SuperLogLogCounter superloglog_copy(SuperLogLogCounter counter) {
+    
+    size_t length = VARSIZE(counter);
+    SuperLogLogCounter copy = (SuperLogLogCounter)palloc(length);
+    
+    memcpy(copy, counter, length);
+    
+    return copy;
+
+}
+
+/* Merges the two estimators. Either modifies the first estimator in place (inplace=true),
+ * or creates a new copy and returns that (inplace=false). Modification in place is very
+ * handy in aggregates, when we really want to modify the aggregate state in place.
+ * 
+ * Mering is only possible if the counters share the same parameters (number of bins,
+ * bin size, ...). If the counters don't match, this throws an ERROR. */
+SuperLogLogCounter superloglog_merge(SuperLogLogCounter counter1, SuperLogLogCounter counter2, bool inplace) {
+
+    int i;
+    SuperLogLogCounter result;
+
+    /* check compatibility first */
+    if (counter1->length != counter2->length)
+        elog(ERROR, "sizes of estimators differs (%d != %d)", counter1->length, counter2->length);
+    else if (counter1->bits != counter2->bits)
+        elog(ERROR, "index size of estimators differs (%d != %d)", counter1->bits, counter2->bits);
+    else if (counter1->m != counter2->m)
+        elog(ERROR, "bin count of estimators differs (%d != %d)", counter1->m, counter2->m);
+
+    /* shall we create a new estimator, or merge into counter1 */
+    if (! inplace)
+        result = superloglog_copy(counter1);
+    else
+        result = counter1;
+
+    /* copy the state of the estimator (keep the higher bin value) */
+    for (i = 0; i < result->m; i++)
+        result->data[i] = (result->data[i] > counter2->data[i]) ? result->data[i] : counter2->data[i];
+
+    return result;
+
+}
