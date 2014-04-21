@@ -60,16 +60,16 @@ CREATE TYPE loglog_estimator (
     LIKE  = bytea
 );
 
--- LogLog based aggregate
--- items / error rate / number of items
-CREATE AGGREGATE loglog_distinct(item anyelement, error_rate real)
+-- LogLog based aggregate (item, error rate)
+CREATE AGGREGATE loglog_distinct(anyelement, real)
 (
     sfunc = loglog_add_item_agg,
     stype = loglog_estimator,
     finalfunc = loglog_get_estimate
 );
 
-CREATE AGGREGATE loglog_distinct(item anyelement)
+-- LogLog based aggregate (item)
+CREATE AGGREGATE loglog_distinct(anyelement)
 (
     sfunc = loglog_add_item_agg2,
     stype = loglog_estimator,

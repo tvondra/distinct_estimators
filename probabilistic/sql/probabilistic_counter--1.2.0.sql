@@ -58,16 +58,16 @@ CREATE TYPE probabilistic_estimator (
     LIKE  = bytea
 );
 
--- probabilistic counting based aggregate
--- items / number of bytes / number of salts
-CREATE AGGREGATE probabilistic_distinct(item anyelement, nbytes int, nsalts int)
+-- probabilistic counting based aggregate (item, nbytes, nsalts)
+CREATE AGGREGATE probabilistic_distinct(anyelement, int, int)
 (
     sfunc = probabilistic_add_item_agg,
     stype = probabilistic_estimator,
     finalfunc = probabilistic_get_estimate
 );
 
-CREATE AGGREGATE probabilistic_distinct(item anyelement)
+-- probabilistic counting based aggregate (item)
+CREATE AGGREGATE probabilistic_distinct(anyelement)
 (
     sfunc = probabilistic_add_item_agg2,
     stype = probabilistic_estimator,

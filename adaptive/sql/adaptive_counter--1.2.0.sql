@@ -78,16 +78,16 @@ CREATE TYPE adaptive_estimator (
     LIKE  = bytea
 );
 
--- adaptive based aggregate
--- item / error rate / number of items
-CREATE AGGREGATE adaptive_distinct(item anyelement, error_rate real, ndistinct int)
+-- adaptive based aggregate (item, error rate, ndistinct)
+CREATE AGGREGATE adaptive_distinct(anyelement, real, int)
 (
     sfunc = adaptive_add_item_agg,
     stype = adaptive_estimator,
     finalfunc = adaptive_get_estimate
 );
 
-CREATE AGGREGATE adaptive_distinct(item anyelement)
+-- adaptive based aggregate (item)
+CREATE AGGREGATE adaptive_distinct(anyelement)
 (
     sfunc = adaptive_add_item_agg2,
     stype = adaptive_estimator,

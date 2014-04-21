@@ -61,16 +61,16 @@ CREATE TYPE pcsa_estimator (
     LIKE  = bytea
 );
 
--- pcsa based aggregate
--- items / error rate / number of items
-CREATE AGGREGATE pcsa_distinct(item anyelement, nbitmaps int, keysize int)
+-- pcsa based aggregate (item, nbitmaps, keysize)
+CREATE AGGREGATE pcsa_distinct(anyelement, int, int)
 (
     sfunc = pcsa_add_item_agg,
     stype = pcsa_estimator,
     finalfunc = pcsa_get_estimate
 );
 
-CREATE AGGREGATE pcsa_distinct(item anyelement)
+-- pcsa based aggregate (item)
+CREATE AGGREGATE pcsa_distinct(anyelement)
 (
     sfunc = pcsa_add_item_agg2,
     stype = pcsa_estimator,

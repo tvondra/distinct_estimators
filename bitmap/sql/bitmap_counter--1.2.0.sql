@@ -70,8 +70,7 @@ CREATE TYPE bitmap_estimator (
     LIKE  = bytea
 );
 
--- s-bitmap based aggregate
--- items / error rate / number of distinct items
+-- s-bitmap based aggregate (item, error rate, ndistinct)
 CREATE AGGREGATE bitmap_distinct(anyelement, real, int)
 (
     sfunc = bitmap_add_item_agg,
@@ -79,6 +78,7 @@ CREATE AGGREGATE bitmap_distinct(anyelement, real, int)
     finalfunc = bitmap_get_estimate
 );
 
+-- s-bitmap based aggregate (item)
 CREATE AGGREGATE bitmap_distinct(anyelement)
 (
     sfunc = bitmap_add_item_agg2,
