@@ -88,20 +88,23 @@ CREATE AGGREGATE pcsa_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE pcsa_accum(item anyelement, nbitmaps int, keysize int)
+-- parameters: item, nbitmaps, keysize
+CREATE AGGREGATE pcsa_accum(anyelement, int, int)
 (
     sfunc = pcsa_add_item_agg,
     stype = pcsa_estimator
 );
 
-CREATE AGGREGATE pcsa_accum(item anyelement)
+-- parameters: item
+CREATE AGGREGATE pcsa_accum(anyelement)
 (
     sfunc = pcsa_add_item_agg2,
     stype = pcsa_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running pcsa_accum)
-CREATE AGGREGATE pcsa_merge(estimator pcsa_estimator)
+-- parameters: estimator
+CREATE AGGREGATE pcsa_merge(pcsa_estimator)
 (
     sfunc = pcsa_merge_agg,
     stype = pcsa_estimator

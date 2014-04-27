@@ -2,7 +2,7 @@ MODULE_big = hyperloglog_counter
 OBJS = src/hyperloglog_counter.o src/hyperloglog.o
 
 EXTENSION = hyperloglog_counter
-DATA = sql/hyperloglog_counter--1.2.0.sql
+DATA = sql/hyperloglog_counter--1.2.0.sql sql/hyperloglog_counter--1.1.0--1.2.0.sql
 MODULES = hyperloglog_counter
 
 TESTS        = $(wildcard test/sql/*.sql)

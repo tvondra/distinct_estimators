@@ -87,20 +87,20 @@ CREATE AGGREGATE loglog_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE loglog_accum(item anyelement, error_rate real)
+CREATE AGGREGATE loglog_accum(anyelement, real)
 (
     sfunc = loglog_add_item_agg,
     stype = loglog_estimator
 );
 
-CREATE AGGREGATE loglog_accum(item anyelement)
+CREATE AGGREGATE loglog_accum(anyelement)
 (
     sfunc = loglog_add_item_agg2,
     stype = loglog_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running loglog_accum)
-CREATE AGGREGATE loglog_merge(estimator loglog_estimator)
+CREATE AGGREGATE loglog_merge(loglog_estimator)
 (
     sfunc = loglog_merge_agg,
     stype = loglog_estimator

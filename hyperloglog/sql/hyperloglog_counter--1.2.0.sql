@@ -88,20 +88,20 @@ CREATE AGGREGATE hyperloglog_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE hyperloglog_accum(item anyelement, error_rate real)
+CREATE AGGREGATE hyperloglog_accum(anyelement, real)
 (
     sfunc = hyperloglog_add_item_agg,
     stype = hyperloglog_estimator
 );
 
-CREATE AGGREGATE hyperloglog_accum(item anyelement)
+CREATE AGGREGATE hyperloglog_accum(anyelement)
 (
     sfunc = hyperloglog_add_item_agg2,
     stype = hyperloglog_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running hyperloglog_accum)
-CREATE AGGREGATE hyperloglog_merge(estimator hyperloglog_estimator)
+CREATE AGGREGATE hyperloglog_merge(hyperloglog_estimator)
 (
     sfunc = hyperloglog_merge_agg,
     stype = hyperloglog_estimator

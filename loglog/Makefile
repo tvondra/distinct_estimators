@@ -2,7 +2,7 @@ MODULE_big = loglog_counter
 OBJS = src/loglog_counter.o src/loglog.o
 
 EXTENSION = loglog_counter
-DATA = sql/loglog_counter--1.2.0.sql
+DATA = sql/loglog_counter--1.2.0.sql sql/loglog_counter--1.1.0--1.2.0.sql
 MODULES = loglog_counter
 
 TESTS        = $(wildcard test/sql/*.sql)

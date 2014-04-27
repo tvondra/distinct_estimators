@@ -13,7 +13,7 @@ CREATE FUNCTION adaptive_init(error_rate real, ndistinct int) RETURNS adaptive_e
      AS 'MODULE_PATHNAME', 'adaptive_init'
      LANGUAGE C;
 
--- merges the second estimator into the first one
+-- merges the two estimators, creates a new one
 CREATE FUNCTION adaptive_merge(estimator1 adaptive_estimator, estimator2 adaptive_estimator) RETURNS adaptive_estimator
      AS 'MODULE_PATHNAME', 'adaptive_merge_simple'
      LANGUAGE C;
@@ -100,20 +100,23 @@ CREATE AGGREGATE adaptive_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE adaptive_accum(item anyelement, error_rate real, ndistinct int)
+-- parameters: item, error_rate, ndistinct
+CREATE AGGREGATE adaptive_accum(anyelement, real, int)
 (
     sfunc = adaptive_add_item_agg,
     stype = adaptive_estimator
 );
 
-CREATE AGGREGATE adaptive_accum(item anyelement)
+-- parameters: item
+CREATE AGGREGATE adaptive_accum(anyelement)
 (
     sfunc = adaptive_add_item_agg2,
     stype = adaptive_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running adaptive_accum)
-CREATE AGGREGATE adaptive_merge(estimator adaptive_estimator)
+-- parameters: estimator
+CREATE AGGREGATE adaptive_merge(adaptive_estimator)
 (
     sfunc = adaptive_merge_agg,
     stype = adaptive_estimator

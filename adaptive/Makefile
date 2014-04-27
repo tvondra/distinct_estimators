@@ -2,7 +2,7 @@ MODULE_big = adaptive_counter
 OBJS = src/adaptive_counter.o src/adaptive.o
 
 EXTENSION = adaptive_counter
-DATA = sql/adaptive_counter--1.3.0.sql
+DATA = sql/adaptive_counter--1.3.0.sql sql/adaptive_counter--1.2.0--1.3.0.sql
 MODULES = adaptive_counter
 
 TESTS        = $(wildcard test/sql/*.sql)

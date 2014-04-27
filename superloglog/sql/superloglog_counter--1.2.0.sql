@@ -87,20 +87,22 @@ CREATE AGGREGATE superloglog_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE superloglog_accum(item anyelement, error_rate real)
+-- parameters: item, error_rate
+CREATE AGGREGATE superloglog_accum(anyelement, real)
 (
     sfunc = superloglog_add_item_agg,
     stype = superloglog_estimator
 );
 
-CREATE AGGREGATE superloglog_accum(item anyelement)
+-- parameters: item
+CREATE AGGREGATE superloglog_accum(anyelement)
 (
     sfunc = superloglog_add_item_agg2,
     stype = superloglog_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running superloglog_accum)
-CREATE AGGREGATE superloglog_merge(estimator superloglog_estimator)
+CREATE AGGREGATE superloglog_merge(superloglog_estimator)
 (
     sfunc = superloglog_merge_agg,
     stype = superloglog_estimator

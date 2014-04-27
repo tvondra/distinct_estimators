@@ -85,20 +85,21 @@ CREATE AGGREGATE probabilistic_distinct(anyelement)
 );
 
 -- build the counter(s), but does not perform the final estimation (i.e. can be used to pre-aggregate data)
-CREATE AGGREGATE probabilistic_accum(item anyelement, nbytes int, nsalts int)
+-- parameters: item, nbytes, nsalts
+CREATE AGGREGATE probabilistic_accum(anyelement, int, int)
 (
     sfunc = probabilistic_add_item_agg,
     stype = probabilistic_estimator
 );
 
-CREATE AGGREGATE probabilistic_accum(item anyelement)
+CREATE AGGREGATE probabilistic_accum(anyelement)
 (
     sfunc = probabilistic_add_item_agg2,
     stype = probabilistic_estimator
 );
 
 -- merges all the counters into just a single one (e.g. after running probabilistic_accum)
-CREATE AGGREGATE probabilistic_merge(estimator probabilistic_estimator)
+CREATE AGGREGATE probabilistic_merge(probabilistic_estimator)
 (
     sfunc = probabilistic_merge_agg,
     stype = probabilistic_estimator

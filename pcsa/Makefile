@@ -2,7 +2,7 @@ MODULE_big = pcsa_counter
 OBJS = src/pcsa_counter.o src/pcsa.o
 
 EXTENSION = pcsa_counter
-DATA = sql/pcsa_counter--1.3.0.sql
+DATA = sql/pcsa_counter--1.3.0.sql  sql/pcsa_counter--1.2.0--1.3.0.sql
 MODULES = pcsa_counter
 
 TESTS        = $(wildcard test/sql/*.sql)
