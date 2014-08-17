@@ -122,7 +122,6 @@ hyperloglog_add_item_agg(PG_FUNCTION_ARGS)
     if (PG_ARGISNULL(0)) {
 
         errorRate = PG_GETARG_FLOAT4(2);
-        elog(WARNING, "error rate = %f", errorRate);
 
         /* error rate between 0 and 1 (not 0) */
         if ((errorRate <= 0) || (errorRate > 1))

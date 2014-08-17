@@ -73,8 +73,6 @@ HyperLogLogCounter hyperloglog_create(int64 ndistinct, float error) {
     p->m= (int)pow(2, p->b);
     memset(p->data, 0, p->m);
 
-    elog(WARNING, "m = %d", p->m);
-    
     /* use 1B for a counter by default */
     p->binbits = 8;
 
@@ -123,8 +121,6 @@ HyperLogLogCounter hyperloglog_merge(HyperLogLogCounter counter1, HyperLogLogCou
         result = hyperloglog_copy(counter1);
     else
         result = counter1;
-
-    elog(WARNING, "merge m = %d", result->m);
 
     /* copy the state of the estimator */
     for (i = 0; i < result->m; i++)
