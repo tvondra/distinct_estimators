@@ -1,6 +1,12 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION pcsa_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/pcsa_counter--1.3.0.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
 
 SELECT pcsa_distinct(id, 32, 4) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
 
