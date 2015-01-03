@@ -3,7 +3,7 @@ BEGIN;
 
 -- disable the notices for the create script (shell types etc.)
 SET client_min_messages = 'WARNING';
-\i sql/pcsa_counter--1.3.0.sql
+\i sql/pcsa_counter--1.3.2.sql
 SET client_min_messages = 'NOTICE';
 
 \set ECHO all
