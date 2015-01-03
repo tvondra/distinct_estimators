@@ -57,11 +57,11 @@ CREATE FUNCTION bitmap_add_item_agg2(counter bitmap_estimator, item anyelement) 
 
 CREATE FUNCTION bitmap_in(value cstring) RETURNS bitmap_estimator
      AS 'MODULE_PATHNAME', 'bitmap_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION bitmap_out(counter bitmap_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'bitmap_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- data type for the s-bitmap based distinct estimator
 CREATE TYPE bitmap_estimator (
