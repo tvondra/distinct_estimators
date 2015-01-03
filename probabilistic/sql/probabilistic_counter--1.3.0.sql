@@ -55,11 +55,11 @@ CREATE FUNCTION probabilistic_add_item_agg2(counter probabilistic_estimator, ite
 /* input/output functions */
 CREATE FUNCTION probabilistic_in(value cstring) RETURNS probabilistic_estimator
      AS 'MODULE_PATHNAME', 'probabilistic_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION probabilistic_out(counter probabilistic_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'probabilistic_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- data type for the probabilistic based distinct estimator
 CREATE TYPE probabilistic_estimator (
