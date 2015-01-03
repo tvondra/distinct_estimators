@@ -1,6 +1,12 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION probabilistic_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/probabilistic_counter--1.3.0.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
 
 SELECT probabilistic_distinct(id, 4, 32) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
 

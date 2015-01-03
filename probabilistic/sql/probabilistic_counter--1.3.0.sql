@@ -5,60 +5,60 @@ CREATE TYPE probabilistic_estimator;
 
 -- get estimator size for the requested number of salts / bytes per salt
 CREATE FUNCTION probabilistic_size(nbytes int, nsalts int) RETURNS int
-     AS 'MODULE_PATHNAME', 'probabilistic_size'
+     AS '$libdir/probabilistic_counter', 'probabilistic_size'
      LANGUAGE C;
 
 -- get estimator size for the requested number of salts / bytes per salt
 CREATE FUNCTION probabilistic_init(nbytes int, nsalts int) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_init'
+     AS '$libdir/probabilistic_counter', 'probabilistic_init'
      LANGUAGE C;
 
 -- merges the estimators into a new copy
 CREATE FUNCTION probabilistic_merge(estimator1 probabilistic_estimator, estimator2 probabilistic_estimator) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_merge_simple'
+     AS '$libdir/probabilistic_counter', 'probabilistic_merge_simple'
      LANGUAGE C;
 
 -- merges the second estimator into the first one
 CREATE FUNCTION probabilistic_merge_agg(estimator1 probabilistic_estimator, estimator2 probabilistic_estimator) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_merge_agg'
+     AS '$libdir/probabilistic_counter', 'probabilistic_merge_agg'
      LANGUAGE C;
 
 -- add an item to the estimator
 CREATE FUNCTION probabilistic_add_item(counter probabilistic_estimator, item anyelement) RETURNS void
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item'
+     AS '$libdir/probabilistic_counter', 'probabilistic_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
 CREATE FUNCTION probabilistic_get_estimate(counter probabilistic_estimator) RETURNS real
-     AS 'MODULE_PATHNAME', 'probabilistic_get_estimate'
+     AS '$libdir/probabilistic_counter', 'probabilistic_get_estimate'
      LANGUAGE C STRICT;
 
 -- reset the estimator (start counting from the beginning)
 CREATE FUNCTION probabilistic_reset(counter probabilistic_estimator) RETURNS void
-     AS 'MODULE_PATHNAME', 'probabilistic_reset'
+     AS '$libdir/probabilistic_counter', 'probabilistic_reset'
      LANGUAGE C STRICT;
 
 -- length of the estimator (about the same as probabilistic_size with existing estimator)
 CREATE FUNCTION length(counter probabilistic_estimator) RETURNS int
-     AS 'MODULE_PATHNAME', 'probabilistic_length'
+     AS '$libdir/probabilistic_counter', 'probabilistic_length'
      LANGUAGE C STRICT;
 
 /* functions for the aggregate functions */
 CREATE FUNCTION probabilistic_add_item_agg(counter probabilistic_estimator, item anyelement, nbytes int, nsalts int) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg'
+     AS '$libdir/probabilistic_counter', 'probabilistic_add_item_agg'
      LANGUAGE C;
 
 CREATE FUNCTION probabilistic_add_item_agg2(counter probabilistic_estimator, item anyelement) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_add_item_agg2'
+     AS '$libdir/probabilistic_counter', 'probabilistic_add_item_agg2'
      LANGUAGE C;
 
 /* input/output functions */
 CREATE FUNCTION probabilistic_in(value cstring) RETURNS probabilistic_estimator
-     AS 'MODULE_PATHNAME', 'probabilistic_in'
+     AS '$libdir/probabilistic_counter', 'probabilistic_in'
      LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION probabilistic_out(counter probabilistic_estimator) RETURNS cstring
-     AS 'MODULE_PATHNAME', 'probabilistic_out'
+     AS '$libdir/probabilistic_counter', 'probabilistic_out'
      LANGUAGE C IMMUTABLE STRICT;
 
 -- data type for the probabilistic based distinct estimator
