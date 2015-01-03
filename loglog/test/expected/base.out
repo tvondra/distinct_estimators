@@ -1,5 +1,4 @@
-BEGIN;
-CREATE EXTENSION loglog_counter;
+\set ECHO 0
 SELECT loglog_distinct(id, 0.02) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
  val 
 -----

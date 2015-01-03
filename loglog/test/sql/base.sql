@@ -1,6 +1,12 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION loglog_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/loglog_counter--1.2.0.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
 
 SELECT loglog_distinct(id, 0.02) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
 
