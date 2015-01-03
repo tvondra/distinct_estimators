@@ -70,11 +70,11 @@ CREATE FUNCTION adaptive_add_item_agg2(counter adaptive_estimator, item anyeleme
 /* input / output functions */
 CREATE FUNCTION adaptive_in(value cstring) RETURNS adaptive_estimator
      AS 'MODULE_PATHNAME', 'adaptive_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION adaptive_out(counter adaptive_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'adaptive_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- data type for the adaptive-sampling based distinct estimator
 CREATE TYPE adaptive_estimator (
