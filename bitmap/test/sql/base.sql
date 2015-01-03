@@ -1,6 +1,13 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION bitmap_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/bitmap_counter--1.3.2.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
+
 
 SELECT bitmap_distinct(id) BETWEEN 99000 AND 110000 val FROM generate_series(1,100000) s(id);
 

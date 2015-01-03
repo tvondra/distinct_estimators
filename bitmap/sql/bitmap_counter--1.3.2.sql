@@ -5,62 +5,62 @@ CREATE TYPE bitmap_estimator;
 
 -- get estimator size for the requested error rate / number of distinct items
 CREATE FUNCTION bitmap_size(error_rate real, ndistinct int) RETURNS int
-     AS 'MODULE_PATHNAME', 'bitmap_size'
+     AS '$libdir/bitmap_counter', 'bitmap_size'
      LANGUAGE C;
 
 -- creates a new bitmap estimator with a given error / number of distinct items
 CREATE FUNCTION bitmap_init(error_rate real, ndistinct int) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_init'
+     AS '$libdir/bitmap_counter', 'bitmap_init'
      LANGUAGE C;
 
 -- add an item to the estimator
 CREATE FUNCTION bitmap_add_item(counter bitmap_estimator, item anyelement) RETURNS void
-     AS 'MODULE_PATHNAME', 'bitmap_add_item'
+     AS '$libdir/bitmap_counter', 'bitmap_add_item'
      LANGUAGE C;
 
 -- get current estimate of the distinct values (as a real number)
 CREATE FUNCTION bitmap_get_estimate(counter bitmap_estimator) RETURNS real
-     AS 'MODULE_PATHNAME', 'bitmap_get_estimate'
+     AS '$libdir/bitmap_counter', 'bitmap_get_estimate'
      LANGUAGE C STRICT;
 
 -- get error rate used when creating the estimator (as a real number)
 CREATE FUNCTION bitmap_get_error(counter bitmap_estimator) RETURNS real
-     AS 'MODULE_PATHNAME', 'bitmap_get_error'
+     AS '$libdir/bitmap_counter', 'bitmap_get_error'
      LANGUAGE C STRICT;
 
 -- get expected number of distinct values used when creating the estimator (int)
 CREATE FUNCTION bitmap_get_ndistinct(counter bitmap_estimator) RETURNS int
-     AS 'MODULE_PATHNAME', 'bitmap_get_ndistinct'
+     AS '$libdir/bitmap_counter', 'bitmap_get_ndistinct'
      LANGUAGE C STRICT;
 
 -- reset the estimator (start counting from the beginning)
 CREATE FUNCTION bitmap_reset(counter bitmap_estimator) RETURNS void
-     AS 'MODULE_PATHNAME', 'bitmap_reset'
+     AS '$libdir/bitmap_counter', 'bitmap_reset'
      LANGUAGE C STRICT;
 
 -- length of the estimator (about the same as adaptive_size with existing estimator)
 CREATE FUNCTION length(counter bitmap_estimator) RETURNS int
-     AS 'MODULE_PATHNAME', 'bitmap_length'
+     AS '$libdir/bitmap_counter', 'bitmap_length'
      LANGUAGE C STRICT;
 
 /* function for aggregate functions */
 
 CREATE FUNCTION bitmap_add_item_agg(counter bitmap_estimator, item anyelement, error_rate real, ndistinct integer) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg'
+     AS '$libdir/bitmap_counter', 'bitmap_add_item_agg'
      LANGUAGE C;
 
 CREATE FUNCTION bitmap_add_item_agg2(counter bitmap_estimator, item anyelement) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_add_item_agg2'
+     AS '$libdir/bitmap_counter', 'bitmap_add_item_agg2'
      LANGUAGE C;
 
 /* input/output function */
 
 CREATE FUNCTION bitmap_in(value cstring) RETURNS bitmap_estimator
-     AS 'MODULE_PATHNAME', 'bitmap_in'
+     AS '$libdir/bitmap_counter', 'bitmap_in'
      LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION bitmap_out(counter bitmap_estimator) RETURNS cstring
-     AS 'MODULE_PATHNAME', 'bitmap_out'
+     AS '$libdir/bitmap_counter', 'bitmap_out'
      LANGUAGE C IMMUTABLE STRICT;
 
 -- data type for the s-bitmap based distinct estimator

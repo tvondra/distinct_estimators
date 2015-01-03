@@ -1,5 +1,4 @@
-BEGIN;
-CREATE EXTENSION bitmap_counter;
+\set ECHO 0
 SELECT bitmap_distinct(id) BETWEEN 99000 AND 110000 val FROM generate_series(1,100000) s(id);
  val 
 -----
