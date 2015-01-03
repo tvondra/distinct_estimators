@@ -57,11 +57,11 @@ CREATE FUNCTION loglog_add_item_agg2(counter loglog_estimator, item anyelement) 
 
 CREATE FUNCTION loglog_in(value cstring) RETURNS loglog_estimator
      AS 'MODULE_PATHNAME', 'loglog_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION loglog_out(counter loglog_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'loglog_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- actual LogLog counter data type
 CREATE TYPE loglog_estimator (
