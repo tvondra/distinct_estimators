@@ -58,11 +58,11 @@ CREATE FUNCTION pcsa_add_item_agg2(counter pcsa_estimator, item anyelement) RETU
 
 CREATE FUNCTION pcsa_in(value cstring) RETURNS pcsa_estimator
      AS 'MODULE_PATHNAME', 'pcsa_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION pcsa_out(counter pcsa_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'pcsa_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- actual PCSA counter data type
 CREATE TYPE pcsa_estimator (
