@@ -1,6 +1,12 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION hyperloglog_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/hyperloglog_counter--1.2.3.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
 
 SELECT hyperloglog_distinct(id, 0.02) BETWEEN 95000 AND 105000 val FROM generate_series(1,100000) s(id);
 
