@@ -58,11 +58,11 @@ CREATE FUNCTION hyperloglog_add_item_agg2(counter hyperloglog_estimator, item an
 
 CREATE FUNCTION hyperloglog_in(value cstring) RETURNS hyperloglog_estimator
      AS 'MODULE_PATHNAME', 'hyperloglog_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION hyperloglog_out(counter hyperloglog_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'hyperloglog_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- actual LogLog counter data type
 CREATE TYPE hyperloglog_estimator (
