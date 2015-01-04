@@ -57,11 +57,11 @@ CREATE FUNCTION superloglog_add_item_agg2(counter superloglog_estimator, item an
 
 CREATE FUNCTION superloglog_in(value cstring) RETURNS superloglog_estimator
      AS 'MODULE_PATHNAME', 'superloglog_in'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION superloglog_out(counter superloglog_estimator) RETURNS cstring
      AS 'MODULE_PATHNAME', 'superloglog_out'
-     LANGUAGE C STRICT;
+     LANGUAGE C IMMUTABLE STRICT;
 
 -- actual LogLog counter data type
 CREATE TYPE superloglog_estimator (
