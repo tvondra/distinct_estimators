@@ -1,6 +1,12 @@
+\set ECHO 0
 BEGIN;
 
-CREATE EXTENSION superloglog_counter;
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/superloglog_counter--1.2.0.sql
+SET client_min_messages = 'NOTICE';
+
+\set ECHO all
 
 SELECT superloglog_distinct(id, 0.02) BETWEEN 66000 AND 125000 val FROM generate_series(1,100000) s(id);
 

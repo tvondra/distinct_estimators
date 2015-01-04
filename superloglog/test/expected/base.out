@@ -1,5 +1,4 @@
-BEGIN;
-CREATE EXTENSION superloglog_counter;
+\set ECHO 0
 SELECT superloglog_distinct(id, 0.02) BETWEEN 66000 AND 125000 val FROM generate_series(1,100000) s(id);
  val 
 -----
