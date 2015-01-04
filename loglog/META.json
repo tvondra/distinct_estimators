@@ -13,8 +13,8 @@
       }
    },
    "provides": {
-     "pcsa_counter": {
-       "file": "sql/pcsa_counter--1.2.2.sql",
+     "loglog_counter": {
+       "file": "sql/loglog_counter--1.2.2.sql",
        "docfile" : "README.md",
        "version": "1.2.2"
      }
