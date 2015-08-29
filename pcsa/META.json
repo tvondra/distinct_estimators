@@ -2,7 +2,7 @@
    "name": "pcsa_estimator",
    "abstract": "Estimates number of distinct elements in a data set (aggregate and a data type).",
    "description": "Provides an alternative to COUNT(DISTINCT) aggregate, computing an estimate of number of distinct values, and a data type that may be used within a table (and updated continuously). This implementation is based on PCSA method, an enhancement of the probabilistic counting (see the paper 'Probalistic Counting Algorithms for Data Base Applications' by Flajolet and Martin, published in 1985).",
-   "version": "1.3.2",
+   "version": "1.3.3",
    "maintainer": "Tomas Vondra <tv@fuzzy.cz>",
    "license": "bsd",
    "prereqs": {
@@ -14,9 +14,9 @@
    },
    "provides": {
      "pcsa_counter": {
-       "file": "sql/pcsa_counter--1.3.2.sql",
+       "file": "sql/pcsa_counter--1.3.3.sql",
        "docfile" : "README.md",
-       "version": "1.3.2"
+       "version": "1.3.3"
      }
    },
    "resources": {
