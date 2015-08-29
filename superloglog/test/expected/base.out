@@ -1,4 +1,4 @@
-\set ECHO 0
+\set ECHO none
 SELECT superloglog_distinct(id, 0.02) BETWEEN 66000 AND 125000 val FROM generate_series(1,100000) s(id);
  val 
 -----

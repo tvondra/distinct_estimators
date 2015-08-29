@@ -1,4 +1,4 @@
-\set ECHO 0
+\set ECHO none
 SELECT probabilistic_distinct(id, 4, 32) BETWEEN 90000 AND 110000 val FROM generate_series(1,100000) s(id);
  val 
 -----

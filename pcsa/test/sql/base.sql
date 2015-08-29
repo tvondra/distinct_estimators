@@ -1,4 +1,4 @@
-\set ECHO 0
+\set ECHO none
 BEGIN;
 
 -- disable the notices for the create script (shell types etc.)
