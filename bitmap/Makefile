@@ -2,7 +2,7 @@ MODULE_big = bitmap_counter
 OBJS = src/bitmap_counter.o src/bitmap.o
 
 EXTENSION = bitmap_counter
-DATA = sql/bitmap_counter--1.3.4.sql sql/bitmap_counter--1.2.0--1.3.4.sql
+DATA = sql/bitmap_counter--1.3.5.sql sql/bitmap_counter--1.2.0--1.3.4.sql sql/bitmap_counter--1.3.4--1.3.5.sql
 MODULES = bitmap_counter
 
 TESTS        = $(wildcard test/sql/*.sql)
