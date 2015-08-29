@@ -1,5 +1,5 @@
 # adaptive estimator
 comment = 'Aggregation functions and data type for distinct estimation based on adaptive sampling.'
-default_version = '1.3.2'
+default_version = '1.3.3'
 relocatable = true
 module_pathname = '$libdir/adaptive_counter'
