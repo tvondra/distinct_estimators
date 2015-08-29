@@ -3,7 +3,7 @@ BEGIN;
 
 -- disable the notices for the create script (shell types etc.)
 SET client_min_messages = 'WARNING';
-\i sql/hyperloglog_counter--1.2.4.sql
+\i sql/hyperloglog_counter--1.2.5.sql
 SET client_min_messages = 'NOTICE';
 
 \set ECHO all
