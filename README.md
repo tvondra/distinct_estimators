@@ -18,6 +18,17 @@ I wrote a [short article](http://www.fuzzy.cz/en/articles/aggregate-functions-fo
 about it a while ago and now I've finally finished these extensions.
 
 
+Warning
+-------
+The primary reason why I implemented those estimators was curiosity
+and learning how they work, differences between them etc. As such, the
+code should be considered experimental.
+
+If you simply need a state of the art cardinality estimator, the choice
+is trivial - just use HyperLogLog. There's a great extension [hll](https://github.com/citusdata/postgresql-hll)
+that is more efficient and went through much more testing.
+
+
 Usage as an aggregate
 ---------------------
 There are two ways to use those extensions - either as an aggregate
@@ -25,13 +36,13 @@ or as a data type (for a column). Let's see the aggregate first ...
 
 There are seven extensions, each one provides an aggregate
 
-1. hyperloglog_distinct(anyelement)
-2. adaptive_distinct(anyelement)
-3. bitmap_distinct(anyelement)
-4. pcsa_distinct(anyelement)
-5. probabilistic_distinct(anyelement)
-6. loglog_distinct(anyelement)
-7. superloglog_distinct(anyelement)
+1. `hyperloglog_distinct(anyelement)`
+2. `adaptive_distinct(anyelement)`
+3. `bitmap_distinct(anyelement)`
+4. `pcsa_distinct(anyelement)`
+5. `probabilistic_distinct(anyelement)`
+6. `loglog_distinct(anyelement)`
+7. `superloglog_distinct(anyelement)`
 
 and about the same aggregates with parameters (mostly to tweak precision
 and memory requirements).
